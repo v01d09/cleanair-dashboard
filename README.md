@@ -77,4 +77,5 @@ graph TD
 *   [dashboard.html](file:///C:/Users/shada/Documents/cleanair-dashboard/dashboard.html) - Administrative Dashboard.
 *   [crew_login.html](file:///C:/Users/shada/Documents/cleanair-dashboard/crew_login.html) - Field Crew Portal login.
 *   [crew.html](file:///C:/Users/shada/Documents/cleanair-dashboard/crew.html) - Field Crew checklist and telemetry transmitter.
+*   [main.py](file:///C:/Users/shada/Documents/cleanair-dashboard/main.py) - Python 3.10 serverless Google Cloud Function source code.
 *   [firestore.rules](file:///C:/Users/shada/Documents/cleanair-dashboard/firestore.rules) - Firebase security rule specifications.
