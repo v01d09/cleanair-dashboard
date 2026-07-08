@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "gcf_file.txt",
+      "firestore.rules",
+      ".firebaserc"
+    ]
+  }
+}

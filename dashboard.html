@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Officer Dashboard - Environmental Monitoring System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+        
+        // Prevent layout/theme flicker by checking local storage before render
+        (function() {
+            const savedTheme = localStorage.getItem('ems-theme') || 'light';
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        .dark ::-webkit-scrollbar-track { background: #080d1a; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #1e293b; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        
+        .nav-item.active { background-color: rgba(37, 99, 235, 0.1); border-right: 3px solid #3b82f6; color: #60a5fa; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-[#0b0f19] text-gray-800 dark:text-slate-100 h-screen flex overflow-hidden selection:bg-blue-500/30 selection:text-blue-200 transition-colors duration-300">
+
+    <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-20 hidden md:hidden backdrop-blur-sm transition-opacity"></div>
+
+    <aside id="sidebar" class="absolute md:relative z-30 transform -translate-x-full md:translate-x-0 transition-transform duration-300 w-64 bg-white dark:bg-[#080d1a] border-r border-gray-200 dark:border-slate-800 flex flex-col h-full shadow-2xl md:shadow-none transition-colors">
+        <div class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-slate-800 justify-between">
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20 mr-3">
+                    <i class="fa-solid fa-shield-halved text-white text-xs"></i>
+                </div>
+                <span class="text-sm font-bold tracking-wider uppercase text-gray-800 dark:text-white">EMS<span class="text-blue-500"> Portal</span></span>
+            </div>
+            <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+        
+        <nav class="flex-1 py-4 flex flex-col gap-1 overflow-y-auto">
+            <div class="px-6 text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2 mt-2">Core Systems</div>
+            <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-item active flex items-center w-full px-6 py-3 text-xs font-semibold text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 transition-colors">
+                <i class="fa-solid fa-border-all w-6 text-left"></i> Dashboard Overview
+            </button>
+            <button onclick="switchView('incidents')" id="nav-incidents" class="nav-item flex items-center w-full px-6 py-3 text-xs font-semibold text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 transition-colors">
+                <i class="fa-solid fa-list-check w-6 text-left"></i> Incident Triage
+                <span id="nav-badge" class="ml-auto bg-red-500 text-white text-[9px] px-2 py-0.5 rounded-full hidden">0</span>
+            </button>
+            <button onclick="switchView('spam')" id="nav-spam" class="nav-item flex items-center w-full px-6 py-3 text-xs font-semibold text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 transition-colors">
+                <i class="fa-solid fa-triangle-exclamation w-6 text-left text-red-500"></i> Spam Moderation
+                <span id="nav-spam-badge" class="ml-auto bg-amber-500 text-white text-[9px] px-2 py-0.5 rounded-full hidden">0</span>
+            </button>
+            <button onclick="switchView('maps')" id="nav-maps" class="nav-item flex items-center w-full px-6 py-3 text-xs font-semibold text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 transition-colors">
+                <i class="fa-solid fa-map-location-dot w-6 text-left"></i> Advanced Map
+            </button>
+            <div class="px-6 text-[10px] font-bold tracking-widest text-slate-500 uppercase mb-2 mt-6">Logistics</div>
+            <button onclick="switchView('crew')" id="nav-crew" class="nav-item flex items-center w-full px-6 py-3 text-xs font-semibold text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 transition-colors">
+                <i class="fa-solid fa-truck-fast w-6 text-left"></i> Field Crews
+            </button>
+        </nav>
+    </aside>
+
+    <div class="flex-1 flex flex-col h-screen overflow-hidden relative w-full">
+        
+        <header class="h-16 bg-white dark:bg-[#0d1424]/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 flex items-center justify-between md:justify-end px-4 md:px-6 z-10 w-full transition-colors">
+            
+            <button onclick="toggleSidebar()" class="md:hidden text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-white p-2">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+
+            <div class="flex items-center space-x-3 md:space-x-4">
+                <div class="flex flex-col text-right">
+                    <span id="officer-name-display" class="text-xs font-bold text-gray-700 dark:text-slate-200">Loading...</span>
+                    <span id="officer-dept-display" class="text-[9px] text-gray-400 dark:text-slate-500 uppercase tracking-widest hidden md:block">Verifying</span>
+                </div>
+                <button id="theme-toggle-btn" class="w-8 h-8 rounded bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500 dark:text-slate-400 transition flex items-center justify-center" title="Toggle Theme">
+                    <i class="fa-solid fa-moon text-xs" id="theme-icon"></i>
+                </button>
+                <button onclick="handleSignOut()" class="w-8 h-8 rounded bg-gray-100 dark:bg-slate-800 hover:bg-red-500/20 hover:text-red-500 dark:hover:text-red-400 text-gray-500 dark:text-slate-400 transition-colors flex items-center justify-center">
+                    <i class="fa-solid fa-power-off text-xs"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-gray-50 dark:bg-gradient-to-b dark:from-[#0b0f19] dark:to-[#080d1a] transition-colors">
+            
+            <section id="view-dashboard" class="block animate-fade-in max-w-7xl mx-auto w-full">
+                
+                <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-4">Sector Overview</h1>
+                
+                <div class="bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 p-4 rounded-xl shadow-lg mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
+                        <span class="text-[11px] uppercase tracking-widest text-gray-500 dark:text-slate-400 font-bold">Active Hotspots: <span id="global-hotspots" class="text-gray-900 dark:text-white text-sm ml-1">0</span></span>
+                    </div>
+                    <div class="hidden md:block h-6 w-px bg-gray-200 dark:bg-slate-700"></div>
+                    <div class="flex flex-wrap items-center gap-4 text-[11px] uppercase tracking-widest font-mono text-gray-500 dark:text-slate-400">
+                        <span class="flex items-center"><i class="fa-solid fa-truck-droplet text-blue-500 dark:text-blue-400 mr-2 text-sm"></i> Anti-Smog Units: <strong id="stat-anti-smog-active" class="text-gray-900 dark:text-white ml-2">0/6</strong></span>
+                        <span class="flex items-center"><i class="fa-solid fa-fan text-cyan-500 dark:text-cyan-400 mr-2 text-sm"></i> Mist Cannons: <strong id="stat-mist-cannons-active" class="text-gray-900 dark:text-white ml-2">0/5</strong></span>
+                    </div>
+                    <div class="hidden md:block h-6 w-px bg-gray-200 dark:bg-slate-700"></div>
+                    <div class="flex items-center space-x-2 text-[10px] uppercase tracking-widest font-mono text-emerald-600 dark:text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-md border border-emerald-500/20 w-fit">
+                        <i class="fa-solid fa-satellite-dish"></i> <span>Pipeline Sync Active</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+                    <div class="bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 p-5 rounded-xl shadow-lg transition-colors">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-widest font-bold mb-1">Critical Hazards</div>
+                                <div id="stat-critical" class="text-3xl font-bold text-gray-900 dark:text-white">0</div>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500"><i class="fa-solid fa-fire-flame-curved"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 p-5 rounded-xl shadow-lg transition-colors">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-widest font-bold mb-1">Avg Predicted AQI</div>
+                                <div class="text-3xl font-bold text-gray-900 dark:text-white">142 <span class="text-sm text-amber-500 ml-1">Moderate</span></div>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500"><i class="fa-solid fa-smog"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 p-5 rounded-xl shadow-lg transition-colors">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-[10px] text-gray-500 dark:text-slate-500 uppercase tracking-widest font-bold mb-1">Crews Deployed</div>
+                                <div id="stat-deployed" class="text-3xl font-bold text-gray-900 dark:text-white">0</div>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500"><i class="fa-solid fa-hard-hat"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW SECTOR INTELLIGENCE NETWORK -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 animate-fade-in">
+                    
+                    <!-- Left: Interactive Spatial Sector Grid -->
+                    <div class="lg:col-span-1 bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 p-5 rounded-xl shadow-lg transition-colors flex flex-col justify-between">
+                        <div class="mb-4">
+                            <h3 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Sector Telemetry Grid</h3>
+                            <p class="text-[11px] text-gray-500 dark:text-slate-400 mt-1 font-sans">Interactive operational polygons. Click on a sector to query AI diagnostics.</p>
+                        </div>
+                        
+                        <!-- Map SVG Container -->
+                        <div id="sector-svg-container" class="w-full aspect-[4/3] bg-gray-50 dark:bg-[#080d1a] border border-gray-200 dark:border-slate-800/80 rounded-lg p-2 flex items-center justify-center relative overflow-hidden transition-colors">
+                            <!-- SVG will be injected here -->
+                        </div>
+                        
+                        <!-- Legend / Map Info -->
+                        <div class="flex flex-wrap justify-between items-center gap-2 mt-4 text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-slate-505 font-mono">
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded border border-blue-500 bg-blue-500/10"></span> Niladri</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded border border-cyan-500 bg-cyan-500/10"></span> Sailashree</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded border border-purple-500 bg-purple-500/10"></span> Infocity</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded border border-amber-500 bg-amber-500/10"></span> Rail</span>
+                            <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded border border-emerald-500 bg-emerald-500/10"></span> District Ctr</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Sector Intelligence Console -->
+                    <div class="lg:col-span-2 bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 p-5 rounded-xl shadow-lg transition-colors flex flex-col justify-between min-h-[300px]">
+                        <div id="sector-intel-active" class="flex-grow flex flex-col justify-between space-y-4">
+                            <div class="flex justify-between items-start border-b border-gray-200 dark:border-slate-800/80 pb-3">
+                                <div>
+                                    <h4 id="selected-sector-title" class="text-base font-black text-gray-900 dark:text-white uppercase tracking-wider">All Sectors (Global Overview)</h4>
+                                    <span id="selected-sector-subtitle" class="text-[9px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-bold font-mono">Active Command Grid</span>
+                                </div>
+                                <button id="deselect-sector-btn" onclick="window.clearSectorSelection()" class="hidden text-[9px] uppercase tracking-widest font-bold font-mono text-gray-400 hover:text-red-500 transition-colors">
+                                    <i class="fa-solid fa-xmark mr-1"></i> Deselect
+                                </button>
+                            </div>
+                            
+                            <!-- Sector Mini Statistics -->
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div class="bg-gray-50 dark:bg-[#080d1a] border border-gray-200 dark:border-slate-800/60 p-3 rounded-lg text-center transition-colors animate-fade-in">
+                                    <div class="text-[8px] text-gray-400 dark:text-slate-505 uppercase tracking-widest font-bold mb-0.5">Active Hotspots</div>
+                                    <div id="selected-sector-hotspots" class="text-xl font-extrabold text-gray-900 dark:text-white font-mono">0</div>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-[#080d1a] border border-gray-200 dark:border-slate-800/60 p-3 rounded-lg text-center transition-colors animate-fade-in">
+                                    <div class="text-[8px] text-gray-400 dark:text-slate-505 uppercase tracking-widest font-bold mb-0.5">Avg Local AQI</div>
+                                    <div id="selected-sector-aqi" class="text-xl font-extrabold text-gray-900 dark:text-white font-mono">--</div>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-[#080d1a] border border-gray-200 dark:border-slate-800/60 p-3 rounded-lg text-center transition-colors animate-fade-in">
+                                    <div class="text-[8px] text-gray-400 dark:text-slate-505 uppercase tracking-widest font-bold mb-0.5 font-sans">Primary Threat</div>
+                                    <div id="selected-sector-primary-threat" class="text-[10px] font-black text-gray-900 dark:text-white uppercase truncate mt-1">None</div>
+                                </div>
+                                <div class="bg-gray-50 dark:bg-[#080d1a] border border-gray-200 dark:border-slate-800/60 p-3 rounded-lg text-center transition-colors animate-fade-in">
+                                    <div class="text-[8px] text-gray-400 dark:text-slate-505 uppercase tracking-widest font-bold mb-0.5 font-sans">Local Crews</div>
+                                    <div id="selected-sector-crews" class="text-xl font-extrabold text-gray-900 dark:text-white font-mono">0</div>
+                                </div>
+                            </div>
+                            
+                            <!-- AI Diagnostic Report Display Panel -->
+                            <div class="flex-grow bg-gray-50 dark:bg-[#080d1a] border border-gray-200 dark:border-slate-800/80 rounded-lg p-4 transition-colors relative min-h-[120px] flex flex-col justify-center">
+                                <div id="selected-sector-ai-loading" class="hidden flex-col items-center justify-center text-center space-y-2 py-4">
+                                    <i class="fa-solid fa-circle-notch fa-spin text-xl text-blue-500 dark:text-blue-400"></i>
+                                    <span class="text-[10px] uppercase tracking-widest font-bold text-gray-500 dark:text-slate-400 font-sans">Synthesizing command brief...</span>
+                                </div>
+                                <div id="selected-sector-ai-report" class="text-xs text-gray-650 dark:text-slate-350 leading-relaxed font-sans hidden">
+                                    <!-- Markdown AI report will go here -->
+                                </div>
+                                <div id="selected-sector-ai-placeholder" class="text-center text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-505 py-6 font-mono">
+                                    <i class="fa-solid fa-satellite mr-1.5 animate-bounce text-blue-500"></i> Click below to query intelligence
+                                </div>
+                            </div>
+                            
+                            <button id="run-ai-sector-btn" onclick="window.runSectorAiAnalysis()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 px-4 rounded-lg text-xs uppercase tracking-widest transition duration-200 shadow-md shadow-blue-500/10 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> <span id="run-ai-sector-btn-text">Run Global AI Overview</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+	  <section id="view-incidents" class="hidden animate-fade-in max-w-7xl mx-auto w-full">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Active Incident Triage</h1>
+                        <p class="text-xs text-gray-500 dark:text-slate-400 mt-1">Multi-agent verified environmental violations requiring dispatch.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden transition-colors">
+                    <table class="w-full text-left border-collapse table-fixed">
+                        <thead>
+                            <tr class="bg-gray-100/80 dark:bg-[#080d1a] border-b border-gray-200 dark:border-slate-800 text-[10px] uppercase tracking-widest text-gray-500 dark:text-slate-500 font-bold">
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">ID / Time</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">Location</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">Hazard Detected</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4 text-right pr-3 md:pr-6">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidents-table-body" class="divide-y divide-gray-200 dark:divide-slate-800/60">
+                            </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SPAM MODERATION PANEL -->
+            <section id="view-spam" class="hidden animate-fade-in max-w-7xl mx-auto w-full">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Spam / Unverified Reports</h1>
+                        <p class="text-xs text-gray-500 dark:text-slate-450 mt-1 font-sans">Submissions flagged as stock photos, screenshots, or unauthentic by the AI mesh.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden transition-colors">
+                    <table class="w-full text-left border-collapse table-fixed font-sans">
+                        <thead>
+                            <tr class="bg-gray-100/80 dark:bg-[#080d1a] border-b border-gray-200 dark:border-slate-800 text-[10px] uppercase tracking-widest text-gray-500 dark:text-slate-500 font-bold">
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">ID / Time</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">Location</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">Initial Analysis</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4 text-right pr-3 md:pr-6">Moderation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="spam-table-body" class="divide-y divide-gray-200 dark:divide-slate-800/60">
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-xs text-gray-400 font-medium font-sans">No flagged spam reports. Grid secure.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="view-maps" class="hidden h-[calc(100vh-140px)] flex flex-col animate-fade-in max-w-7xl mx-auto w-full">
+                <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">Live Spatial Analysis</h1>
+                <div class="flex-1 bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 rounded-xl overflow-hidden relative transition-colors">
+                    <iframe src="maps.html" class="w-full h-full border-0 absolute inset-0"></iframe>
+                </div>
+            </section>
+
+            <section id="view-crew" class="hidden animate-fade-in max-w-7xl mx-auto w-full">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h1 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Field Crew Routing</h1>
+                        <p class="text-xs text-gray-500 dark:text-slate-400 mt-1">Real-time GPS telemetry and availability indicators of municipal crew squads.</p>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-[#0d1424] border border-gray-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden transition-colors">
+                    <table class="w-full text-left border-collapse table-fixed">
+                        <thead>
+                            <tr class="bg-gray-100/80 dark:bg-[#080d1a] border-b border-gray-200 dark:border-slate-800 text-[10px] uppercase tracking-widest text-gray-500 dark:text-slate-505 font-bold">
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">Squad Unit / Specialization</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">GPS Coordinates</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4">Active Sector Location</th>
+                                <th class="px-1.5 md:px-6 py-4 w-1/4 text-right pr-3 md:pr-6">Status / Task</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crew-table-body" class="divide-y divide-gray-200 dark:divide-slate-800/60 text-xs">
+                            <tr>
+                                <td colspan="4" class="px-6 py-8 text-center text-xs text-gray-400 font-medium">Awaiting Crew Telemetry Sync...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <footer class="bg-white dark:bg-[#0d1424] border-t border-gray-200 dark:border-slate-800 transition-colors duration-300 w-full shrink-0 mt-8 rounded-xl shadow-md overflow-hidden">
+                <div class="max-w-7xl mx-auto px-6 py-6 md:py-8 flex flex-col md:flex-row md:justify-between md:items-center gap-6 text-xs text-gray-500 dark:text-slate-400">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-blue-50 dark:bg-gray-900 p-1.5 rounded-lg border border-blue-100 dark:border-gray-800">
+                            <i class="fa-solid fa-satellite-dish text-blue-600 dark:text-blue-400 text-sm"></i>
+                        </div>
+                        <div>
+                            <span class="font-black tracking-widest uppercase text-gray-900 dark:text-white">EMS</span>
+                            <span class="block text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">Clean Air Command</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-x-6 gap-y-2 font-bold uppercase tracking-wider text-[9px]">
+                        <a href="index.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-house"></i> Home</a>
+                        <a href="maps.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-map-location-dot"></i> Live Map</a>
+                        <a href="citizen.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-user-astronaut"></i> Report</a>
+                        <a href="crew_login.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-truck-fast"></i> Crew</a>
+                        <a href="gov.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-building-shield"></i> Official</a>
+                    </div>
+                    
+                    <div class="font-mono text-[9px] text-gray-400 dark:text-slate-650 uppercase tracking-widest flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-halved text-emerald-500 dark:text-emerald-600"></i> AES-256 Command Protocol
+                    </div>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, collection, onSnapshot, query, orderBy, updateDoc, deleteDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMzuLbJvBKf7Ivxtd6FbWDYp_hV0GD1TM",
+            authDomain: "void-501114.firebaseapp.com",
+            projectId: "void-501114",
+            storageBucket: "void-501114.firebasestorage.app",
+            messagingSenderId: "715581482123",
+            appId: "1:715581482123:web:abc16633b73f2934a4208e",
+            measurementId: "G-G9DRGJCSF7"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app, "clean"); 
+        const auth = getAuth(app);
+
+        // GLOBAL STATES & CACHES
+        window.miniMaps = {}; 
+        window.addressCache = {};
+        window.weatherCache = {};
+        window.expandedIncidentIds = new Set(); // tracks open details drawers
+
+        // SECTOR INTELLIGENCE STATE ENGINE
+        window.selectedSector = null;
+        const sectorAiCache = {};
+
+        let currentSpamIncidents = [];
+
+        const geofencePolygons = {
+            "Niladri Vihar": [
+                [20.331164, 85.797387],
+                [20.327195, 85.795332],
+                [20.323444, 85.795568],
+                [20.322510, 85.802466],
+                [20.321403, 85.802152],
+                [20.319164, 85.810519],
+                [20.321403, 85.811647],
+                [20.321501, 85.812434],
+                [20.331242, 85.815634],
+                [20.330897, 85.809182],
+                [20.329840, 85.808998],
+                [20.331164, 85.797387]
+            ],
+            "Sailashree Vihar": [
+                [20.329775, 85.808972],
+                [20.331219, 85.797427],
+                [20.332744, 85.798161],
+                [20.335930, 85.796750],
+                [20.338846, 85.798046],
+                [20.339118, 85.807507],
+                [20.338245, 85.807541],
+                [20.338576, 85.810062],
+                [20.339587, 85.810066],
+                [20.339614, 85.810475],
+                [20.340117, 85.810450],
+                [20.341482, 85.813226],
+                [20.340209, 85.814042],
+                [20.339563, 85.813933],
+                [20.338613, 85.815720],
+                [20.339273, 85.816169],
+                [20.337619, 85.820193],
+                [20.335599, 85.816476],
+                [20.332981, 85.816082],
+                [20.333222, 85.813484],
+                [20.331182, 85.813154],
+                [20.330903, 85.809142],
+                [20.329775, 85.808972]
+            ],
+            "Infocity": [
+                [20.335914, 85.796692],
+                [20.338750, 85.795909],
+                [20.343520, 85.798826],
+                [20.346656, 85.798506],
+                [20.346105, 85.799146],
+                [20.348974, 85.803433],
+                [20.353444, 85.803202],
+                [20.354544, 85.806902],
+                [20.342853, 85.807115],
+                [20.342940, 85.809942],
+                [20.338629, 85.810086],
+                [20.338264, 85.807537],
+                [20.339140, 85.807501],
+                [20.338944, 85.797984],
+                [20.335914, 85.796692]
+            ],
+            "Rail Vihar": [
+                [20.305008, 85.812987],
+                [20.304974, 85.811574],
+                [20.306357, 85.811591],
+                [20.306405, 85.810586],
+                [20.308226, 85.810603],
+                [20.308730, 85.808037],
+                [20.308747, 85.804362],
+                [20.319406, 85.807776],
+                [20.319097, 85.810550],
+                [20.321292, 85.811521],
+                [20.322332, 85.812682],
+                [20.321926, 85.814902],
+                [20.323226, 85.815110],
+                [20.322641, 85.816895],
+                [20.320202, 85.816375],
+                [20.320202, 85.815474],
+                [20.317520, 85.814728],
+                [20.317503, 85.813064],
+                [20.315374, 85.812942],
+                [20.315130, 85.813931],
+                [20.311406, 85.813844],
+                [20.310772, 85.820068],
+                [20.307845, 85.820283],
+                [20.307536, 85.819052],
+                [20.308031, 85.813158],
+                [20.305008, 85.812987]
+            ],
+            "District Center": [
+                [20.321158, 85.820372],
+                [20.321410, 85.816875],
+                [20.322657, 85.816896],
+                [20.322981, 85.815220],
+                [20.321887, 85.814971],
+                [20.322143, 85.813140],
+                [20.322350, 85.812703],
+                [20.323099, 85.813228],
+                [20.326792, 85.814038],
+                [20.326309, 85.820671],
+                [20.321158, 85.820372]
+            ]
+        };
+
+        let activeGeofences = JSON.parse(JSON.stringify(geofencePolygons));
+
+        function isPointInPolygon(lat, lng, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                let xi = polygon[i][0], yi = polygon[i][1];
+                let xj = polygon[j][0], yj = polygon[j][1];
+                
+                let intersect = ((yi > lng) !== (yj > lng))
+                    && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function determineGeofenceZone(lat, lng) {
+            for (const name of Object.keys(activeGeofences)) {
+                if (isPointInPolygon(lat, lng, activeGeofences[name])) {
+                    return name;
+                }
+            }
+            return null;
+        }
+
+        let currentCrews = [];
+        let currentIncidents = [];
+
+        // THEME TOGGLE ENGINE
+        const htmlElement = document.documentElement;
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const themeIcon = document.getElementById('theme-icon');
+
+        if (htmlElement.classList.contains('dark') && themeIcon) {
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                htmlElement.classList.toggle('dark');
+                const isDark = htmlElement.classList.contains('dark');
+                localStorage.setItem('ems-theme', isDark ? 'dark' : 'light');
+                if (themeIcon) {
+                    if (isDark) {
+                        themeIcon.classList.remove('fa-moon');
+                        themeIcon.classList.add('fa-sun');
+                    } else {
+                        themeIcon.classList.remove('fa-sun');
+                        themeIcon.classList.add('fa-moon');
+                    }
+                }
+                
+                // Redraw map tiles
+                Object.keys(window.miniMaps).forEach(docId => {
+                    const map = window.miniMaps[docId];
+                    if (map) {
+                        const latLng = map.getCenter();
+                        const zoom = map.getZoom();
+                        map.remove();
+                        delete window.miniMaps[docId];
+                        
+                        setTimeout(() => {
+                            const newMap = L.map(`map-${docId}`, { zoomControl: false }).setView([latLng.lat, latLng.lng], zoom);
+                            const tileUrl = isDark 
+                                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
+                                : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+                            L.tileLayer(tileUrl, { attribution: '&copy; OpenStreetMap' }).addTo(newMap);
+                            L.circleMarker([latLng.lat, latLng.lng], { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.5, radius: 8 }).addTo(newMap);
+                            window.miniMaps[docId] = newMap;
+                        }, 50);
+                    }
+                });
+            });
+        }
+
+        // MOBILE SIDEBAR TOGGLE
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        };
+
+        // SPA ROUTING LOGIC
+        window.switchView = function(viewId) {
+            document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.getElementById(`nav-${viewId}`).classList.add('active');
+            
+            // Close mobile sidebar on navigation
+            if(window.innerWidth < 768) window.toggleSidebar();
+        };
+
+        // AUTHENTICATION
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const docSnap = await getDoc(doc(db, "government_officers", user.uid));
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const firstName = (data.name || "Officer").split(" ")[0];
+                    document.getElementById('officer-name-display').textContent = `Officer ${firstName}`;
+                    document.getElementById('officer-dept-display').textContent = data.department || "Command";
+                    startSyncListeners();
+                } else {
+                    await signOut(auth);
+                    window.location.replace('gov.html');
+                }
+            } else {
+                window.location.replace('gov.html');
+            }
+        });
+
+        window.handleSignOut = async function() {
+            await signOut(auth);
+            window.location.replace('gov.html');
+        };
+
+        // LIVE API: Reverse Geocoding
+        window.fetchShortAddress = async function(lat, lng, docId) {
+            const cacheKey = `${lat},${lng}`;
+            const targetEl = document.getElementById(`loc-${docId}`);
+            if (window.addressCache[cacheKey]) {
+                if(targetEl) targetEl.innerText = window.addressCache[cacheKey];
+                return;
+            }
+            try {
+                const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+                const data = await res.json();
+                const shortAddress = data.locality || data.city || "Unknown Sector";
+                window.addressCache[cacheKey] = shortAddress;
+                if(targetEl) targetEl.innerText = shortAddress;
+            } catch(e) {
+                if(targetEl) targetEl.innerText = "Coordinates Captured";
+            }
+        };
+
+        // LIVE API: Live Weather
+        window.fetchLiveWeather = async function(lat, lng, docId) {
+            const targetEl = document.getElementById(`weather-${docId}`);
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,relative_humidity_2m`);
+                const data = await res.json();
+                const temp = data.current.temperature_2m;
+                const wind = data.current.wind_speed_10m;
+                targetEl.innerHTML = `<span class="text-blue-500 dark:text-blue-400 font-bold">${temp}°C</span> | Wind: ${wind} km/h`;
+            } catch(e) {
+                targetEl.innerText = "Telemetry Offline";
+            }
+        };
+
+        // INCIDENT DRAWER TOGGLE
+        window.toggleIncidentDetails = function(docId, lat, lng) {
+            const detailRow = document.getElementById(`details-${docId}`);
+            
+            if (detailRow.classList.contains('hidden')) {
+                detailRow.classList.remove('hidden');
+                window.expandedIncidentIds.add(docId);
+                fetchLiveWeather(lat, lng, docId);
+
+                // Initialize Mini Map if not in cache
+                if (!window.miniMaps[docId] && lat && lng) {
+                    setTimeout(() => {
+                        const isDark = document.documentElement.classList.contains('dark');
+                        const tileUrl = isDark 
+                            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
+                            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+                        
+                        const map = L.map(`map-${docId}`, { zoomControl: false }).setView([lat, lng], 15);
+                        L.tileLayer(tileUrl, { attribution: '&copy; OpenStreetMap' }).addTo(map);
+                        L.circleMarker([lat, lng], { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.5, radius: 8 }).addTo(map);
+                        window.miniMaps[docId] = map;
+                    }, 50);
+                }
+            } else {
+                detailRow.classList.add('hidden');
+                window.expandedIncidentIds.delete(docId);
+                if (window.miniMaps[docId]) {
+                    window.miniMaps[docId].remove();
+                    delete window.miniMaps[docId];
+                }
+            }
+        };
+
+        // WRITE-BACK: ASSIGN OPERATION
+        window.deployResource = async function(docId, resourceType) {
+            const selectId = resourceType === 'MIST_CANNON' ? `select-cannon-${docId}` : `select-cleanup_crew-${docId}`;
+            const selectEl = document.getElementById(selectId);
+            const chosenCrewId = selectEl ? selectEl.value : 'GENERIC';
+            
+            const btn = document.getElementById(`btn-deploy-${resourceType.toLowerCase()}-${docId}`);
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Deploying...`;
+            
+            try {
+                const incidentRef = doc(db, "verified_incidents", docId);
+                const newStatus = resourceType === 'MIST_CANNON' ? 'MIST_CANNON_DEPLOYED' : 'CLEANUP_CREW_DEPLOYED';
+                
+                await updateDoc(incidentRef, { 
+                    status: newStatus,
+                    assigned_crew_id: chosenCrewId
+                });
+
+                if (chosenCrewId !== 'GENERIC') {
+                    const crewRef = doc(db, "dispatch_crews", chosenCrewId);
+                    await updateDoc(crewRef, {
+                        assignedIncident: docId
+                    });
+                }
+            } catch (error) {
+                console.error("Dispatch failure:", error);
+                alert("Permission Denied.");
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        };
+
+        // REAL-TIME SYNCHRONIZATION
+        function startSyncListeners() {
+            // Incidents Listener
+            const incidentsQuery = query(collection(db, "verified_incidents"), orderBy("timestamp", "desc"));
+            onSnapshot(incidentsQuery, (snapshot) => {
+                currentIncidents = [];
+                snapshot.forEach(docSnap => {
+                    currentIncidents.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                renderAll();
+            });
+
+            // Crews Listener
+            const crewsQuery = collection(db, "dispatch_crews");
+            onSnapshot(crewsQuery, (snapshot) => {
+                currentCrews = [];
+                snapshot.forEach(docSnap => {
+                    currentCrews.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                renderAll();
+            });
+
+            // Spam/Unverified Listener
+            const spamQuery = query(collection(db, "not_verified"), orderBy("timestamp", "desc"));
+            onSnapshot(spamQuery, (snapshot) => {
+                currentSpamIncidents = [];
+                snapshot.forEach(docSnap => {
+                    currentSpamIncidents.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                renderSpam();
+            });
+        }
+
+        // UNIFIED RENDER PIPELINE
+        function renderAll() {
+            renderIncidents();
+            renderCrews();
+            renderStats();
+            updateSectorAnalysis();
+        }
+
+        // SECTOR INTELLIGENCE ENGINE IMPLEMENTATION
+        function generateSvgMap() {
+            const width = 350;
+            const height = 300;
+            
+            const minLat = 20.29, maxLat = 20.35;
+            const minLng = 85.79, maxLng = 85.85;
+            
+            const svgContainer = document.getElementById('sector-svg-container');
+            if (!svgContainer) return;
+            
+            let svgContent = `<svg viewBox="0 0 ${width} ${height}" class="w-full h-full">`;
+            
+            for (const [name, polygon] of Object.entries(activeGeofences)) {
+                // Filter active, non-resolved incidents in this sector
+                const activeCount = currentIncidents.filter(inc => {
+                    const status = inc.status || "PENDING";
+                    if (status === "RESOLVED") return false;
+                    const zone = determineGeofenceZone(inc.latitude, inc.longitude);
+                    return zone === name;
+                }).length;
+
+                const isSelected = window.selectedSector === name;
+                
+                // Color mapping styles
+                let colorClass = "stroke-gray-300 dark:stroke-slate-700 fill-gray-100/30 dark:fill-slate-800/10 hover:fill-gray-500/20";
+                if (activeCount > 0) {
+                    colorClass = "stroke-red-500 dark:stroke-red-500/80 fill-red-500/5 hover:fill-red-500/25";
+                }
+                if (isSelected) {
+                    colorClass = "stroke-blue-600 dark:stroke-blue-400 fill-blue-500/20 dark:fill-blue-400/20 stroke-[3px]";
+                }
+
+                const points = polygon.map(p => {
+                    const lat = p[0];
+                    const lng = p[1];
+                    const x = ((lng - minLng) / (maxLng - minLng)) * width;
+                    const y = height - (((lat - minLat) / (maxLat - minLat)) * height);
+                    return `${x.toFixed(1)},${y.toFixed(1)}`;
+                }).join(' ');
+                
+                svgContent += `
+                    <polygon 
+                        id="svg-polygon-${name.replace(/\s+/g, '-')}"
+                        points="${points}" 
+                        class="transition-all duration-300 cursor-pointer ${colorClass}"
+                        onclick="window.selectSector('${name}')"
+                    >
+                        <title>${name} (${activeCount} Active Hotspots)</title>
+                    </polygon>
+                `;
+            }
+            
+            svgContent += `</svg>`;
+            svgContainer.innerHTML = svgContent;
+        }
+
+        window.selectSector = function(name) {
+            window.selectedSector = name;
+            generateSvgMap();
+            updateSectorStats(name);
+        }
+
+        window.clearSectorSelection = function() {
+            window.selectedSector = null;
+            generateSvgMap();
+            updateSectorStats(null);
+        }
+
+        function updateSectorStats(name) {
+            const titleEl = document.getElementById('selected-sector-title');
+            const subtitleEl = document.getElementById('selected-sector-subtitle');
+            const deselectBtn = document.getElementById('deselect-sector-btn');
+            const btnText = document.getElementById('run-ai-sector-btn-text');
+            
+            // Filter incidents (either sector-focused or global overview)
+            const sectorIncidents = currentIncidents.filter(inc => {
+                const status = inc.status || "PENDING";
+                if (status === "RESOLVED") return false;
+                if (!name) return true; // Global: include all
+                const zone = determineGeofenceZone(inc.latitude, inc.longitude);
+                return zone === name;
+            });
+            
+            if (name) {
+                if (titleEl) titleEl.textContent = name;
+                if (subtitleEl) subtitleEl.textContent = "Active Command Sector";
+                if (deselectBtn) deselectBtn.classList.remove('hidden');
+                if (btnText) btnText.textContent = `Run AI Diagnostics`;
+            } else {
+                if (titleEl) titleEl.textContent = "All Sectors (Global Overview)";
+                if (subtitleEl) subtitleEl.textContent = "Active Command Grid";
+                if (deselectBtn) deselectBtn.classList.add('hidden');
+                if (btnText) btnText.textContent = `Run Global AI Overview`;
+            }
+            
+            // 1. Hotspots
+            const hotspotsEl = document.getElementById('selected-sector-hotspots');
+            if (hotspotsEl) hotspotsEl.textContent = sectorIncidents.length;
+            
+            // 2. Avg AQI
+            const aqiEl = document.getElementById('selected-sector-aqi');
+            if (aqiEl) {
+                if (sectorIncidents.length > 0) {
+                    const totalAqi = sectorIncidents.reduce((sum, inc) => sum + (inc.calculated_local_aqi || 0), 0);
+                    const avgAqi = Math.round(totalAqi / sectorIncidents.length);
+                    let aqiLabel = "Good";
+                    let aqiColor = "text-emerald-500";
+                    if (avgAqi > 100) { aqiLabel = "Moderate"; aqiColor = "text-amber-500"; }
+                    if (avgAqi > 200) { aqiLabel = "Critical"; aqiColor = "text-red-500"; }
+                    aqiEl.innerHTML = `${avgAqi} <span class="text-[8px] font-bold block ${aqiColor} uppercase tracking-widest mt-0.5">${aqiLabel}</span>`;
+                } else {
+                    aqiEl.innerHTML = `0 <span class="text-[8px] font-bold block text-emerald-500 uppercase tracking-widest mt-0.5">Clear</span>`;
+                }
+            }
+            
+            // 3. Primary Threat
+            const threatEl = document.getElementById('selected-sector-primary-threat');
+            if (threatEl) {
+                if (sectorIncidents.length > 0) {
+                    const threatCounts = {};
+                    sectorIncidents.forEach(inc => {
+                        const type = inc.hazard_type || "Other";
+                        threatCounts[type] = (threatCounts[type] || 0) + 1;
+                    });
+                    const sortedThreats = Object.keys(threatCounts).sort((a, b) => threatCounts[b] - threatCounts[a]);
+                    threatEl.textContent = sortedThreats[0];
+                } else {
+                    threatEl.textContent = "None";
+                }
+            }
+            
+            // 4. Local Crews
+            const crewsEl = document.getElementById('selected-sector-crews');
+            if (crewsEl) {
+                const sectorCrewsCount = currentCrews.filter(crew => {
+                    let crewZone = crew.operationalZone;
+                    if (crewZone === "Niladrivihar") crewZone = "Niladri Vihar";
+                    if (crewZone === "Railvihar") crewZone = "Rail Vihar";
+                    return crew.status === "ONLINE" && (crewZone === "ALL" || !name || crewZone === name);
+                }).length;
+                crewsEl.textContent = sectorCrewsCount;
+            }
+            
+            // AI Cache handling
+            const cacheKey = name || "GLOBAL";
+            const placeholder = document.getElementById('selected-sector-ai-placeholder');
+            const reportArea = document.getElementById('selected-sector-ai-report');
+            const loading = document.getElementById('selected-sector-ai-loading');
+            
+            if (loading && placeholder && reportArea) {
+                loading.classList.add('hidden');
+                if (sectorAiCache[cacheKey]) {
+                    placeholder.classList.add('hidden');
+                    reportArea.classList.remove('hidden');
+                    reportArea.innerHTML = formatMarkdown(sectorAiCache[cacheKey]);
+                } else {
+                    placeholder.classList.remove('hidden');
+                    reportArea.classList.add('hidden');
+                    reportArea.innerHTML = '';
+                }
+            }
+        }
+
+        window.updateSectorAnalysis = function() {
+            generateSvgMap();
+            updateSectorStats(window.selectedSector);
+        }
+
+        window.runSectorAiAnalysis = async function() {
+            const sectorName = window.selectedSector;
+            const cacheKey = sectorName || "GLOBAL";
+            const displayName = sectorName || "All Sectors (Global)";
+            
+            const btn = document.getElementById('run-ai-sector-btn');
+            const originalHTML = btn ? btn.innerHTML : '';
+            const loading = document.getElementById('selected-sector-ai-loading');
+            const reportArea = document.getElementById('selected-sector-ai-report');
+            const placeholder = document.getElementById('selected-sector-ai-placeholder');
+            
+            const sectorIncidents = currentIncidents.filter(inc => {
+                const status = inc.status || "PENDING";
+                if (status === "RESOLVED") return false;
+                if (!sectorName) return true;
+                const zone = determineGeofenceZone(inc.latitude, inc.longitude);
+                return zone === sectorName;
+            });
+            
+            if (btn && loading && reportArea && placeholder) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> <span>Analyzing grid...</span>';
+                placeholder.classList.add('hidden');
+                reportArea.classList.add('hidden');
+                loading.classList.remove('hidden');
+            }
+            
+            try {
+                if (sectorIncidents.length === 0) {
+                    const msg = `🟢 Sector ${displayName} is currently clear. No active pollution hotspots detected.`;
+                    sectorAiCache[cacheKey] = msg;
+                    if (loading && reportArea) {
+                        loading.classList.add('hidden');
+                        reportArea.classList.remove('hidden');
+                        reportArea.innerHTML = msg;
+                    }
+                    return;
+                }
+                
+                let prompt = `Analyze the following pollution incidents in the region '${displayName}':\n`;
+                sectorIncidents.forEach(inc => {
+                    prompt += `- Type: ${inc.hazard_type || 'Unknown'}, Severity: ${inc.severity_level || 'MEDIUM'}, Notes: ${inc.environmental_analysis || 'No detailed forensic data'}\n`;
+                });
+                
+                prompt += "\nFormat your response as a professional command briefing with exactly 3 bullet points:\n";
+                prompt += "1. Sector Diagnostics (common issues & AQI profile)\n";
+                prompt += "2. Operational Threat Level (evaluate importance/priority for intervention)\n";
+                prompt += "3. Tactical Resource Recommendation (specify whether to deploy Mist Cannons, Cleanup Crews, or Monitor)";
+                
+                // Securely call the Cloud Function backend analysis endpoint
+                const response = await fetch('https://asia-south1-void-501114.cloudfunctions.net/cleanair-core', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'analyze_sector',
+                        prompt: prompt
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errTxt = await response.text();
+                    throw new Error(`Command analysis error: ${response.status} - ${errTxt}`);
+                }
+                
+                const responseJson = await response.json();
+                let answerText = responseJson.response || "";
+                
+                sectorAiCache[cacheKey] = answerText;
+                
+                if (loading && reportArea) {
+                    loading.classList.add('hidden');
+                    reportArea.classList.remove('hidden');
+                    reportArea.innerHTML = formatMarkdown(answerText);
+                }
+                
+            } catch (err) {
+                console.error(err);
+                if (loading && reportArea) {
+                    loading.classList.add('hidden');
+                    reportArea.classList.remove('hidden');
+                    reportArea.innerHTML = `<span class="text-red-500 font-bold uppercase tracking-wider text-[9px]"><i class="fa-solid fa-triangle-exclamation mr-1.5 animate-bounce"></i> Direct API offline: ${err.message || err}</span>`;
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                }
+            }
+        }
+
+        function formatMarkdown(text) {
+            if (!text) return '';
+            let formatted = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/^\*\s(.*)$/gm, '<li class="ml-4 list-disc mt-1 text-gray-700 dark:text-slate-300 font-medium">$1</li>')
+                .replace(/^\d\.\s(.*)$/gm, '<li class="ml-4 list-decimal mt-1 text-gray-700 dark:text-slate-300 font-medium">$1</li>')
+                .replace(/\n/g, '<br>');
+            return formatted;
+        }
+
+        // SPAM MODERATION PANEL IMPLEMENTATION
+        function renderSpam() {
+            const tableBody = document.getElementById('spam-table-body');
+            const spamBadge = document.getElementById('nav-spam-badge');
+            if (!tableBody) return;
+            
+            tableBody.innerHTML = '';
+            
+            if (currentSpamIncidents.length > 0) {
+                if (spamBadge) {
+                    spamBadge.textContent = currentSpamIncidents.length;
+                    spamBadge.classList.remove('hidden');
+                }
+            } else {
+                if (spamBadge) spamBadge.classList.add('hidden');
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-12 text-center text-xs text-gray-400 font-medium font-sans">
+                            <i class="fa-solid fa-circle-check text-emerald-500 text-lg mb-2 block animate-pulse"></i> No flagged spam reports. Grid secure.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            currentSpamIncidents.forEach(data => {
+                const docId = data.id;
+                const timeStr = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleString() : "Syncing...";
+                const lat = parseFloat(data.latitude) || 20.296;
+                const lng = parseFloat(data.longitude) || 85.824;
+                const image = data.citizen_image || "";
+                const hazardType = data.hazard_type || "Flagged Content";
+                const analysis = data.environmental_analysis || "Spam alert: unauthentic image signature detected.";
+                
+                const row = document.createElement('tr');
+                row.className = "hover:bg-gray-100/50 dark:hover:bg-[#11192b] transition-colors border-b border-gray-200 dark:border-slate-800/60";
+                row.innerHTML = `
+                    <td class="px-1.5 md:px-6 py-4">
+                        <div class="font-mono text-[10px] text-gray-400 dark:text-slate-505 font-bold uppercase truncate max-w-[120px]">${docId}</div>
+                        <div class="text-[9px] text-gray-500 dark:text-slate-400 mt-1">${timeStr}</div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4">
+                        <div id="loc-spam-${docId}" class="font-bold text-gray-900 dark:text-white text-xs">Locating...</div>
+                        <div class="text-[9px] text-gray-500 dark:text-slate-400 font-mono mt-0.5">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4">
+                        <div class="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">${hazardType}</div>
+                        <div class="text-[10px] text-gray-500 dark:text-slate-455 mt-0.5 line-clamp-2 leading-relaxed max-w-sm font-sans" title="${analysis}">${analysis}</div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4 text-right pr-3 md:pr-6">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="window.previewSpamImage('${image}')" class="text-slate-400 hover:text-blue-500 p-1.5 transition-colors" title="Preview Image">
+                                <i class="fa-solid fa-image text-sm"></i>
+                            </button>
+                            <button id="btn-approve-${docId}" onclick="window.approveSpam('${docId}')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-2.5 py-1.5 rounded text-[9px] uppercase tracking-wider transition-colors" title="Move to Active Incident Triage">
+                                <i class="fa-solid fa-check"></i> Approve
+                            </button>
+                            <button id="btn-delete-${docId}" onclick="window.deleteSpam('${docId}')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 font-bold px-2.5 py-1.5 rounded text-[9px] uppercase tracking-wider transition-colors" title="Delete Permanently">
+                                <i class="fa-solid fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+                fetchShortAddress(lat, lng, 'spam-' + docId);
+            });
+        }
+
+        window.previewSpamImage = function(url) {
+            if (!url) return;
+            const overlay = document.createElement('div');
+            overlay.id = 'spam-preview-overlay';
+            overlay.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer';
+            overlay.onclick = () => overlay.remove();
+            
+            const container = document.createElement('div');
+            container.className = 'relative max-w-2xl max-h-[85vh] bg-[#0d1424] border border-slate-800 p-2 rounded-xl shadow-2xl cursor-default';
+            container.onclick = (e) => e.stopPropagation();
+            
+            const img = document.createElement('img');
+            img.src = url.includes('twilio.com') ? `https://asia-south1-void-501114.cloudfunctions.net/cleanair-core?action=proxy_image&url=${encodeURIComponent(url)}` : url;
+            img.className = 'max-w-full max-h-[80vh] rounded-lg object-contain';
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '<i class="fa-solid fa-xmark text-lg"></i>';
+            closeBtn.className = 'absolute -top-3 -right-3 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg hover:bg-red-650 transition-colors';
+            closeBtn.onclick = () => overlay.remove();
+            
+            container.appendChild(img);
+            container.appendChild(closeBtn);
+            overlay.appendChild(container);
+            document.body.appendChild(overlay);
+        }
+
+        window.approveSpam = async function(docId) {
+            const btn = document.getElementById(`btn-approve-${docId}`);
+            if (!btn) return;
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-[9px]"></i>`;
+            
+            try {
+                const spamRef = doc(db, "not_verified", docId);
+                const docSnap = await getDoc(spamRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    data.is_pollution_incident = true;
+                    data.status = "PENDING";
+                    data.timestamp = new Date();
+                    
+                    await addDoc(collection(db, "verified_incidents"), data);
+                    await deleteDoc(spamRef);
+                }
+            } catch (err) {
+                console.error("Spam approval failed:", err);
+                alert("Permission Denied.");
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        window.deleteSpam = async function(docId) {
+            const btn = document.getElementById(`btn-delete-${docId}`);
+            if (!btn) return;
+            const originalHTML = btn.innerHTML;
+            
+            if (!confirm("Are you sure you want to permanently delete this flagged spam report?")) return;
+            
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-[9px]"></i>`;
+            
+            try {
+                const spamRef = doc(db, "not_verified", docId);
+                await deleteDoc(spamRef);
+            } catch (err) {
+                console.error("Spam deletion failed:", err);
+                alert("Permission Denied.");
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        function renderStats() {
+            const globalHotspots = document.getElementById('global-hotspots');
+            const statCritical = document.getElementById('stat-critical');
+            const statDeployed = document.getElementById('stat-deployed');
+            const navBadge = document.getElementById('nav-badge');
+
+            let activeCount = 0;
+            let criticalCount = 0;
+            
+            currentIncidents.forEach(inc => {
+                const status = inc.status || "PENDING";
+                const severity = inc.severity_level || "MEDIUM";
+                if (status === "PENDING" || status === "IN_PROGRESS" || status === "MIST_CANNON_DEPLOYED" || status === "CLEANUP_CREW_DEPLOYED") {
+                    activeCount++;
+                    if (severity.toUpperCase() === 'CRITICAL' || severity.toUpperCase() === 'HIGH') {
+                        criticalCount++;
+                    }
+                }
+            });
+
+            // Count crews that are ONLINE and currently assigned to an incident
+            let deployedCrews = 0;
+            let deployedMistCannons = 0;
+            let deployedCleanupCrews = 0;
+
+            currentCrews.forEach(crew => {
+                if (crew.status === "ONLINE" && crew.assignedIncident) {
+                    deployedCrews++;
+                    if (crew.crewType === "MIST_CANNON") deployedMistCannons++;
+                    if (crew.crewType === "CLEANUP_CREW") deployedCleanupCrews++;
+                }
+            });
+
+            globalHotspots.textContent = activeCount;
+            statCritical.textContent = criticalCount;
+            statDeployed.textContent = deployedCrews;
+            
+            document.getElementById('stat-anti-smog-active').textContent = `${deployedCleanupCrews}/6`;
+            document.getElementById('stat-mist-cannons-active').textContent = `${deployedMistCannons}/5`;
+
+            if (activeCount > 0) {
+                navBadge.textContent = activeCount;
+                navBadge.classList.remove('hidden');
+            } else {
+                navBadge.classList.add('hidden');
+            }
+        }
+
+        function renderIncidents() {
+            const tableBody = document.getElementById('incidents-table-body');
+            tableBody.innerHTML = '';
+
+            currentIncidents.forEach(data => {
+                const docId = data.id;
+                const status = data.status || "PENDING";
+                
+                // Skip resolved items to keep triage clean
+                if (status === "RESOLVED") return;
+
+                const hazardType = data.hazard_type || "Unknown Hazard";
+                const severity = data.severity_level || "MEDIUM"; 
+                const predictedWarning = data.predictive_24h_spike_warning || "Agent processing... Dispersion risks minimal.";
+                const environmentalAnalysis = data.environmental_analysis || "No visual forensic analysis details compiled yet.";
+                const actionableInstruction = data.actionable_instruction_for_crew || "Deploy standard containment protocols.";
+                
+                const lat = data.latitude || 20.296; 
+                const lng = data.longitude || 85.824;
+                const aqi = data.calculated_local_aqi || "N/A";
+
+                let timeStr = "Just Now";
+                if (data.timestamp) {
+                    const dateObj = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+                    timeStr = dateObj.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+                }
+
+                let statusBadge = "";
+                if (status === 'MIST_CANNON_DEPLOYED') {
+                    statusBadge = `<span class="px-2 py-1 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 text-[9px] font-bold whitespace-nowrap"><i class="fa-solid fa-fan mr-1 animate-spin"></i> CANNON ACTIVE</span>`;
+                } else if (status === 'CLEANUP_CREW_DEPLOYED') {
+                    statusBadge = `<span class="px-2 py-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-[9px] font-bold whitespace-nowrap"><i class="fa-solid fa-truck-droplet mr-1"></i> CREW ACTIVE</span>`;
+                } else if (status === 'IN_PROGRESS') {
+                    statusBadge = `<span class="px-2 py-1 rounded bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20 text-[9px] font-bold animate-pulse whitespace-nowrap"><i class="fa-solid fa-spinner fa-spin mr-1"></i> IN MITIGATION</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 py-1 rounded bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 text-[9px] font-bold animate-pulse whitespace-nowrap">ACTION REQUIRED</span>`;
+                }
+
+                let severityColor = 'amber';
+                if(severity.toUpperCase() === 'CRITICAL' || severity.toUpperCase() === 'HIGH') severityColor = 'red';
+                if(severity.toUpperCase() === 'LOW') severityColor = 'emerald';
+
+                const mainRow = document.createElement('tr');
+                mainRow.className = "hover:bg-gray-100/50 dark:hover:bg-[#11192b] border-l-2 border-transparent hover:border-cyan-500 transition-colors cursor-pointer group";
+                mainRow.onclick = () => toggleIncidentDetails(docId, lat, lng);
+                
+                mainRow.innerHTML = `
+                    <td class="px-1.5 md:px-6 py-4 whitespace-normal break-words align-top">
+                        <div class="text-[10px] font-mono text-gray-500 dark:text-slate-400">#${docId.substring(0,6)}</div>
+                        <div class="text-[10px] text-gray-700 dark:text-slate-300 font-bold mt-0.5">${timeStr}</div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4 whitespace-normal break-words align-top">
+                        <div id="loc-${docId}" class="text-xs font-semibold text-gray-900 dark:text-white">Locating...</div>
+                        <div class="text-[9px] font-mono text-gray-400 dark:text-slate-555 mt-0.5">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4 whitespace-normal break-words align-top">
+                        <div class="text-xs text-gray-800 dark:text-slate-200 font-bold">${hazardType}</div>
+                        <div class="text-[9px] uppercase tracking-widest text-${severityColor}-600 dark:text-${severityColor}-400 font-semibold mt-1">${severity}</div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4 align-top">
+                        <div class="flex items-center justify-end gap-1.5 md:gap-4">
+                            ${statusBadge}
+                            <i class="fa-solid fa-chevron-down text-gray-400 dark:text-slate-600 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors text-[10px] md:text-xs"></i>
+                        </div>
+                    </td>
+                `;
+
+                // Build dropdown options dynamically from currently online available crews
+                const incidentZone = determineGeofenceZone(lat, lng);
+                
+                let cannonOptions = `<option value="GENERIC">Generic Dispatch / Off-Grid Squad</option>`;
+                let crewOptions = `<option value="GENERIC">Generic Dispatch / Off-Grid Squad</option>`;
+
+                currentCrews.forEach(crew => {
+                    if (crew.status === 'ONLINE' && !crew.assignedIncident) {
+                        let crewZone = crew.operationalZone;
+                        if (crewZone === "Niladrivihar") crewZone = "Niladri Vihar";
+                        if (crewZone === "Railvihar") crewZone = "Rail Vihar";
+                        
+                        const supportsZone = (crewZone === 'ALL' || crewZone === incidentZone);
+                        const zoneLabel = supportsZone 
+                            ? (crewZone === 'ALL' ? 'Global Unit' : 'Matched Zone') 
+                            : `Out of Zone: ${crewZone}`;
+                            
+                        const optionText = `${crew.crewName} (${zoneLabel})`;
+                        
+                        if (crew.crewType === 'MIST_CANNON') {
+                            cannonOptions += `<option value="${crew.id}">${optionText}</option>`;
+                        } else if (crew.crewType === 'CLEANUP_CREW') {
+                            crewOptions += `<option value="${crew.id}">${optionText}</option>`;
+                        }
+                    }
+                });
+
+                let deployButtonHTML = "";
+                if (status === 'MIST_CANNON_DEPLOYED' || status === 'CLEANUP_CREW_DEPLOYED' || status === 'IN_PROGRESS') {
+                    const assignedCrewDoc = currentCrews.find(c => c.id === data.assigned_crew_id);
+                    const crewLabel = assignedCrewDoc ? assignedCrewDoc.crewName : "Municipal Team";
+                    const statusStr = status === 'IN_PROGRESS' ? "Mitigating Scene" : "Dispatched";
+                    deployButtonHTML = `<button disabled class="w-full py-2.5 rounded-lg bg-gray-200 dark:bg-slate-800 text-cyan-600 dark:text-cyan-400 text-[10px] font-bold uppercase tracking-widest cursor-not-allowed border border-gray-300 dark:border-slate-700"><i class="fa-solid fa-check mr-2"></i> ${crewLabel} (${statusStr})</button>`;
+                } else {
+                    deployButtonHTML = `
+                        <div class="flex flex-col gap-3">
+                            <div class="space-y-1">
+                                <label class="block text-[8px] font-bold text-gray-400 uppercase">Route Water-Mist Cannon</label>
+                                <select id="select-cannon-${docId}" onclick="event.stopPropagation();" class="w-full bg-gray-50 dark:bg-[#080d1a] border border-gray-300 dark:border-slate-800 text-[10px] px-2 py-1.5 rounded focus:outline-none focus:border-cyan-500">
+                                    ${cannonOptions}
+                                </select>
+                                <button id="btn-deploy-mist_cannon-${docId}" onclick="event.stopPropagation(); deployResource('${docId}', 'MIST_CANNON')" class="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white shadow-md text-[9px] font-bold uppercase tracking-widest transition-all"><i class="fa-solid fa-fan mr-1"></i> Route Cannon Unit</button>
+                            </div>
+                            <div class="space-y-1 mt-1">
+                                <label class="block text-[8px] font-bold text-gray-400 uppercase">Route Cleanup Squad</label>
+                                <select id="select-cleanup_crew-${docId}" onclick="event.stopPropagation();" class="w-full bg-gray-50 dark:bg-[#080d1a] border border-gray-300 dark:border-slate-800 text-[10px] px-2 py-1.5 rounded focus:outline-none focus:border-blue-500">
+                                    ${crewOptions}
+                                </select>
+                                <button id="btn-deploy-cleanup_crew-${docId}" onclick="event.stopPropagation(); deployResource('${docId}', 'CLEANUP_CREW')" class="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-md text-[9px] font-bold uppercase tracking-widest transition-all"><i class="fa-solid fa-truck-droplet mr-1"></i> Route Cleanup Crew</button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const detailsRow = document.createElement('tr');
+                detailsRow.id = `details-${docId}`;
+                
+                const isExpanded = window.expandedIncidentIds.has(docId);
+                detailsRow.className = `${isExpanded ? "" : "hidden"} bg-gray-50/50 dark:bg-[#0a0f18] border-b border-gray-200 dark:border-slate-800/80`;
+
+                detailsRow.innerHTML = `
+                    <td colspan="4" class="px-4 md:px-6 py-4 md:py-6 text-gray-800 dark:text-slate-100">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                            <div class="space-y-4">
+                                <div>
+                                    <h4 class="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-500 border-b border-gray-200 dark:border-slate-800 pb-2 mb-2">Incident Analytics</h4>
+                                    <div class="grid grid-cols-2 gap-3 text-xs">
+                                        <div class="bg-gray-100 dark:bg-[#0d1424] p-2.5 rounded border border-gray-200 dark:border-slate-800 transition-colors">
+                                            <span class="block text-[9px] text-gray-500 dark:text-slate-500 uppercase mb-0.5">Calculated Local AQI</span>
+                                            <span class="font-black text-gray-900 dark:text-white text-sm">${aqi}</span>
+                                        </div>
+                                        <div class="bg-gray-100 dark:bg-[#0d1424] p-2.5 rounded border border-gray-200 dark:border-slate-800 transition-colors">
+                                            <span class="block text-[9px] text-gray-500 dark:text-slate-500 uppercase mb-0.5">Live Atmospherics</span>
+                                            <span id="weather-${docId}" class="font-bold text-gray-700 dark:text-slate-300">Syncing Satellite...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="space-y-1">
+                                    <h4 class="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-500 border-b border-gray-200 dark:border-slate-800 pb-2 mb-1">Environmental Analysis</h4>
+                                    <p class="text-xs leading-relaxed text-gray-600 dark:text-slate-300 font-sans bg-gray-100 dark:bg-[#0d1424] p-3 rounded border border-gray-200 dark:border-slate-800 font-medium transition-colors">${environmentalAnalysis}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <div class="space-y-1">
+                                    <h4 class="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-slate-500 border-b border-gray-200 dark:border-slate-800 pb-2 mb-1">24-Hour Forecast Warning</h4>
+                                    <p class="text-xs leading-relaxed text-gray-600 dark:text-slate-400 font-mono bg-gray-100 dark:bg-[#0d1424] p-3 rounded border border-gray-200 dark:border-slate-800 transition-colors">${predictedWarning}</p>
+                                </div>
+ 
+                                <div class="bg-blue-500/10 dark:bg-blue-500/5 border border-blue-500/25 dark:border-blue-500/20 rounded p-3 text-xs text-blue-800 dark:text-blue-400 transition-colors">
+                                    <span class="block text-[9px] font-black uppercase tracking-wider mb-1"><i class="fa-solid fa-robot mr-1"></i> Recommended Response Action</span>
+                                    <p class="font-medium">${actionableInstruction}</p>
+                                </div>
+ 
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                                    <div class="h-32 rounded-lg border border-gray-300 dark:border-slate-700 overflow-hidden relative bg-gray-100 dark:bg-[#080d1a] transition-colors">
+                                        <div id="map-${docId}" class="absolute inset-0 z-0"></div>
+                                    </div>
+                                    <div class="w-full">
+                                        ${deployButtonHTML}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+
+                tableBody.appendChild(mainRow);
+                tableBody.appendChild(detailsRow);
+                fetchShortAddress(lat, lng, docId);
+
+                // Auto-trigger maps if they were expanded
+                if (isExpanded && lat && lng) {
+                    setTimeout(() => {
+                        const isDark = document.documentElement.classList.contains('dark');
+                        const tileUrl = isDark 
+                            ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
+                            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+                        const map = L.map(`map-${docId}`, { zoomControl: false }).setView([lat, lng], 15);
+                        L.tileLayer(tileUrl, { attribution: '&copy; OpenStreetMap' }).addTo(map);
+                        L.circleMarker([lat, lng], { color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.5, radius: 8 }).addTo(map);
+                        window.miniMaps[docId] = map;
+                    }, 50);
+                }
+            });
+        }
+
+        function renderCrews() {
+            const tableBody = document.getElementById('crew-table-body');
+            tableBody.innerHTML = '';
+
+            if (currentCrews.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="px-6 py-8 text-center text-xs text-gray-400 font-medium">No registered crew terminals online.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            currentCrews.forEach(crew => {
+                const crewId = crew.id;
+                const name = crew.crewName || "Squad Unit";
+                const type = crew.crewType === "MIST_CANNON" ? "Water-Mist Cannon" : "Cleanup Crew";
+                const zone = crew.operationalZone === "ALL" ? "All Locations" : (crew.operationalZone || "All Locations");
+                const status = crew.status || "OFFLINE";
+                const lat = parseFloat(crew.latitude) || 20.296;
+                const lng = parseFloat(crew.longitude) || 85.824;
+                const assignedIncidentId = crew.assignedIncident;
+
+                // Status Badge
+                let statusBadge = "";
+                if (status === "ONLINE") {
+                    statusBadge = `<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[9px] font-bold">ONLINE</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 py-0.5 rounded bg-gray-500/10 text-gray-500 border border-gray-500/20 text-[9px] font-bold">OFFLINE</span>`;
+                }
+
+                // Task details
+                let taskBadge = `<span class="text-gray-400 dark:text-slate-500 font-bold uppercase text-[9px] tracking-wider">IDLE / STANDBY</span>`;
+                if (assignedIncidentId) {
+                    const matchedInc = currentIncidents.find(inc => inc.id === assignedIncidentId);
+                    const hazardDesc = matchedInc ? matchedInc.hazard_type : "Active Incident";
+                    const progressStr = matchedInc && matchedInc.status === "IN_PROGRESS" ? "MITIGATING" : "DISPATCHED";
+                    const badgeColor = progressStr === "MITIGATING" ? "yellow" : "cyan";
+                    
+                    taskBadge = `<span class="px-2 py-0.5 rounded bg-${badgeColor}-500/10 text-${badgeColor}-600 dark:text-${badgeColor}-400 border border-${badgeColor}-500/20 text-[9px] font-black uppercase tracking-wider">${progressStr}: ${hazardDesc}</span>`;
+                }
+
+                const row = document.createElement('tr');
+                row.className = "hover:bg-gray-100/50 dark:hover:bg-[#11192b] transition-colors";
+                row.innerHTML = `
+                    <td class="px-1.5 md:px-6 py-4">
+                        <div class="font-bold text-gray-900 dark:text-white text-xs">${name}</div>
+                        <div class="text-[9px] text-gray-500 dark:text-slate-400 font-semibold mt-0.5">${type} • <span class="text-cyan-600 dark:text-cyan-400 font-black">${zone}</span></div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4 font-mono text-[10px] text-gray-500 dark:text-slate-400">
+                        ${lat.toFixed(6)}, ${lng.toFixed(6)}
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4">
+                        <div id="loc-crew-${crewId}" class="font-bold text-gray-900 dark:text-white text-xs">Locating...</div>
+                        <div class="text-[9px] text-gray-400 dark:text-slate-500 font-mono mt-0.5">Last Sync: ${crew.lastActive ? new Date(crew.lastActive).toLocaleTimeString() : 'Never'}</div>
+                    </td>
+                    <td class="px-1.5 md:px-6 py-4 text-right pr-3 md:pr-6 space-y-1.5">
+                        <div>${statusBadge}</div>
+                        <div class="mt-1">${taskBadge}</div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+                fetchShortAddress(lat, lng, 'crew-' + crewId);
+            });
+        }
+    </script>
+</body>
+</html>

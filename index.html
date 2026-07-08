@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environmental Monitoring System (EMS)</title>
+    
+    <link rel="icon" href="data:,">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+        
+        // Prevent layout/theme flicker by checking local storage before render
+        (function() {
+            const savedTheme = localStorage.getItem('ems-theme') || 'light';
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body, html { margin: 0; padding: 0; min-height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-[100dvh] transition-colors duration-300">
+
+    <header class="w-full bg-white/85 dark:bg-gray-950/85 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-3.5 flex justify-between items-center shadow-sm sticky top-0 z-50 transition-all duration-300">
+        <a href="index.html" class="flex items-center space-x-2.5 text-gray-800 dark:text-white hover:opacity-90 transition">
+            <div class="bg-gradient-to-tr from-blue-600 to-cyan-500 p-2 rounded-lg shadow-md shadow-blue-500/10 flex items-center justify-center">
+                <i class="fa-solid fa-satellite-dish text-white text-xs md:text-sm"></i>
+            </div>
+            <div class="flex flex-col">
+                <span class="font-black tracking-widest text-sm md:text-base uppercase leading-none text-gray-950 dark:text-white">EMS</span>
+                <span class="text-[8px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mt-0.5 font-sans">Air Quality Management</span>
+            </div>
+        </a>
+        
+        <div class="flex items-center space-x-3 md:space-x-4">
+            <!-- Space-optimized Dropdown Selection -->
+            <div class="relative">
+                <select id="language-select" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg px-2 py-1 text-[10px] md:text-xs font-bold text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition shadow-sm cursor-pointer">
+                    <option value="en">🌐 EN</option>
+                    <option value="hi">🌐 हिन्दी</option>
+                    <option value="or">🌐 ଓଡ଼ିଆ</option>
+                </select>
+            </div>
+            <a href="maps.html" class="text-[10px] md:text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-1.5 rounded-lg shadow-sm">
+                <i class="fa-solid fa-map-location-dot mr-1.5 text-xs text-blue-600 dark:text-blue-400"></i><span data-translate="live_map">Live Map</span>
+            </a>
+            <div class="h-4 w-px bg-gray-200 dark:bg-gray-800"></div>
+            <button id="theme-toggle-btn" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500 transition-all duration-200 flex items-center justify-center shadow-sm" title="Toggle Theme">
+                <i class="fa-solid fa-moon text-xs" id="theme-icon"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow p-6 md:p-10 max-w-[1200px] w-full mx-auto flex flex-col justify-center space-y-8">
+        
+        <div class="text-center md:text-left space-y-3 mb-2">
+            <h1 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white tracking-tight uppercase" data-translate="title">Environmental Monitoring System (EMS)</h1>
+            <p class="text-gray-500 dark:text-gray-400 text-sm md:text-base font-medium" data-translate="subtitle">Select an option below to access your workspace or view public data.</p>
+        </div>
+
+        <!-- Auth Alert staging panel -->
+        <div id="auth-alert" class="hidden w-full p-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 transition-colors flex items-center gap-2.5 shadow-sm animate-pulse">
+            <i class="fa-solid fa-shield-exclamation text-sm"></i>
+            <span data-translate="auth_required">Authentication Required: Please log in to access secure dispatch systems</span>
+        </div>
+
+
+            
+        <!-- Command Grid Layout -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            
+            <!-- Citizen Card -->
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                <div class="space-y-4 mb-6">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black tracking-widest text-blue-600 dark:text-blue-400 uppercase" data-translate="citizen_services">Citizen Services</span>
+                        <div class="bg-blue-50 dark:bg-blue-500/10 p-2.5 rounded-xl border border-blue-100 dark:border-blue-500/20 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-user-astronaut text-xl text-blue-600 dark:text-blue-400"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight uppercase" data-translate="report_pollution">Report Pollution</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium font-sans" data-translate="citizen_desc">Log in to upload photos of local smoke/dust, report hyper-local hotspots, and track status tickets in your neighborhood.</p>
+                </div>
+                <a href="citizen.html" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-center py-3 px-4 rounded-xl text-xs uppercase tracking-widest transition duration-200 shadow-md shadow-blue-500/20 hover:shadow-blue-500/30 flex items-center justify-center gap-2">
+                    <span data-translate="btn_report">Report Pollution</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform"></i>
+                </a>
+            </div>
+
+            <!-- Crew Card -->
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                <div class="space-y-4 mb-6">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black tracking-widest text-cyan-600 dark:text-cyan-400 uppercase" data-translate="field_ops">Field Operations</span>
+                        <div class="bg-cyan-50 dark:bg-cyan-500/10 p-2.5 rounded-xl border border-cyan-100 dark:border-cyan-500/20 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-truck-fast text-xl text-cyan-600 dark:text-cyan-400"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight uppercase" data-translate="crew_terminal">Crew Terminal</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium font-sans" data-translate="crew_desc">Log in as a municipal crew squad to transmit live coordinates, view AI forensic reports, and execute containment operations.</p>
+                </div>
+                <a href="crew_login.html" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-center py-3 px-4 rounded-xl text-xs uppercase tracking-widest transition duration-200 shadow-md shadow-cyan-500/20 hover:shadow-cyan-500/30 flex items-center justify-center gap-2">
+                    <span data-translate="btn_access_terminal">Access Terminal</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform"></i>
+                </a>
+            </div>
+
+            <!-- Official Card -->
+            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 md:p-8 flex flex-col justify-between shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                <div class="space-y-4 mb-6">
+                    <div class="flex justify-between items-start">
+                        <span class="text-[10px] font-black tracking-widest text-emerald-600 dark:text-emerald-400 uppercase" data-translate="official_access">Official Access</span>
+                        <div class="bg-emerald-50 dark:bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-500/20 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-building-shield text-xl text-emerald-600 dark:text-emerald-400"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight uppercase" data-translate="command_center">Command Center</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium font-sans" data-translate="official_desc">Log in to review incoming citizen uploads, monitor sensor alerts, and coordinate deployment of mist cannons and cleanup squads.</p>
+                </div>
+                <a href="gov.html" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-center py-3 px-4 rounded-xl text-xs uppercase tracking-widest transition duration-200 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/30 flex items-center justify-center gap-2">
+                    <span data-translate="btn_enter_console">Enter Console</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition-transform"></i>
+                </a>
+            </div>
+
+            <!-- Live Map Card (Spans full width on desktop) -->
+            <div class="md:col-span-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-sm hover:shadow-xl transition-all duration-300 group">
+                <div class="space-y-3 max-w-2xl">
+                    <div class="flex items-center space-x-2">
+                        <div class="bg-purple-50 dark:bg-purple-500/10 p-2 rounded-lg border border-purple-100 dark:border-purple-500/20">
+                            <i class="fa-solid fa-map-location-dot text-sm text-purple-600 dark:text-purple-400"></i>
+                        </div>
+                        <span class="text-[10px] font-black tracking-widest text-purple-600 dark:text-purple-400 uppercase" data-translate="public_gateway">Public Data Gateway</span>
+                    </div>
+                    <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight uppercase" data-translate="live_telemetry_title">Live Air Quality Telemetry Map</h2>
+                    <p class="text-xs md:text-sm text-gray-500 dark:text-gray-400 leading-relaxed font-medium font-sans" data-translate="live_telemetry_desc">Access the real-time, neighborhood-level map combining public sensor data, satellite imagery, and reported pollution hotspots.</p>
+                </div>
+                <a href="maps.html" class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold text-center py-3.5 px-8 rounded-xl text-xs uppercase tracking-widest transition duration-200 shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 shrink-0 flex items-center justify-center gap-2">
+                    <span data-translate="btn_launch_map">Launch Live Map</span> <i class="fa-solid fa-circle-play text-[10px]"></i>
+                </a>
+            </div>
+
+        </div>
+    </main>
+    
+    <footer class="bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 transition-colors duration-300 w-full shrink-0">
+        <div class="max-w-7xl mx-auto px-6 py-6 md:py-8 flex flex-col md:flex-row md:justify-between md:items-center gap-6 text-xs text-gray-500 dark:text-gray-400">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-50 dark:bg-gray-900 p-1.5 rounded-lg border border-blue-100 dark:border-gray-800">
+                    <i class="fa-solid fa-satellite-dish text-blue-600 dark:text-blue-400 text-sm"></i>
+                </div>
+                <div>
+                    <span class="font-black tracking-widest uppercase text-gray-900 dark:text-white">EMS</span>
+                    <span class="block text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">Clean Air Command</span>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-x-6 gap-y-2 font-bold uppercase tracking-wider text-[9px]">
+                <a href="index.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-house"></i> Home</a>
+                <a href="maps.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-map-location-dot"></i> Live Map</a>
+                <a href="citizen.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-user-astronaut"></i> Report</a>
+                <a href="crew_login.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-truck-fast"></i> Crew</a>
+                <a href="gov.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-building-shield"></i> Official</a>
+            </div>
+            
+            <div class="font-mono text-[9px] text-gray-400 dark:text-gray-600 uppercase tracking-widest flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-emerald-500 dark:text-emerald-600"></i> AES-256 Command Protocol
+            </div>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMzuLbJvBKf7Ivxtd6FbWDYp_hV0GD1TM",
+            authDomain: "void-501114.firebaseapp.com",
+            projectId: "void-501114",
+            storageBucket: "void-501114.firebasestorage.app",
+            messagingSenderId: "715581482123",
+            appId: "1:715581482123:web:abc16633b73f2934a4208e",
+            measurementId: "G-G9DRGJCSF7"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app, "clean");
+        const auth = getAuth(app);
+
+        const htmlElement = document.documentElement;
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const themeIcon = document.getElementById('theme-icon');
+
+        // Set initial icon based on theme
+        if (htmlElement.classList.contains('dark')) {
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            const isDark = htmlElement.classList.contains('dark');
+            localStorage.setItem('ems-theme', isDark ? 'dark' : 'light');
+            if (isDark) {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+            } else {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+            }
+        });
+        // =====================================================================
+        // MULTILINGUAL TRANSLATION DICTIONARY
+        // =====================================================================
+        const translations = {
+            en: {
+                live_map: "Live Map",
+                title: "Environmental Monitoring System (EMS)",
+                subtitle: "Select an option below to access your workspace or view public data.",
+                auth_required: "Authentication Required: Please log in to access secure dispatch systems",
+                citizen_services: "Citizen Portal",
+                report_pollution: "Report Air Pollution / Smoke",
+                citizen_desc: "Report local open burning, smoke, or dust, upload photos of the hazard, and track the mitigation progress.",
+                btn_report: "Report Incident",
+                field_ops: "Field Response Squad",
+                crew_terminal: "Field Crew Terminal",
+                crew_desc: "Log in as a response squad to receive dispatch coordinates, view location details, and report containment actions.",
+                btn_access_terminal: "Access Terminal",
+                official_access: "Administrative Portal",
+                command_center: "Officer Dashboard",
+                official_desc: "Authorized login for municipal officers to monitor air quality alerts, verify reports, and dispatch field crews.",
+                btn_enter_console: "Enter Dashboard",
+                public_gateway: "Public Air Quality Gateway",
+                live_telemetry_title: "Real-Time Air Quality Map",
+                live_telemetry_desc: "Access the real-time neighborhood-level map combining public sensor feeds, satellite imagery, and reported air pollution incidents.",
+                btn_launch_map: "Open Map"
+            },
+            hi: {
+                live_map: "लाइव मैप",
+                title: "पर्यावरण निगरानी प्रणाली (EMS)",
+                subtitle: "अपने कार्यक्षेत्र तक पहुँचने या सार्वजनिक डेटा देखने के लिए नीचे एक विकल्प चुनें।",
+                auth_required: "प्रमाणीकरण आवश्यक: सुरक्षित प्रेषण प्रणालियों तक पहुँचने के लिए कृपया लॉग इन करें",
+                citizen_services: "नागरिक पोर्टल",
+                report_pollution: "वायु प्रदूषण / धुआं की रिपोर्ट",
+                citizen_desc: "स्थानीय स्तर पर कूड़ा-कचरा जलने, धुएं या धूल की रिपोर्ट करें, फोटो अपलोड करें और समाधान की प्रगति को ट्रैक करें।",
+                btn_report: "रिपोर्ट दर्ज करें",
+                field_ops: "फील्ड रिस्पांस टीम",
+                crew_terminal: "फील्ड क्रू टर्मिनल",
+                crew_desc: "डिस्पैच स्थान प्राप्त करने, विवरण देखने और नियंत्रण कार्यों की रिपोर्ट करने के लिए फील्ड टीम के रूप में लॉग इन करें।",
+                btn_access_terminal: "टर्मिनल खोलें",
+                official_access: "प्रशासनिक पोर्टल",
+                command_center: "अधिकारी डैशबोर्ड",
+                official_desc: "वायु गुणवत्ता अलर्ट की निगरानी करने, रिपोर्ट सत्यापित करने और फील्ड टीमों को तैनात करने के लिए अधिकृत अधिकारी लॉगिन।",
+                btn_enter_console: "डैशबोर्ड खोलें",
+                public_gateway: "सार्वजनिक वायु गुणवत्ता गेटवे",
+                live_telemetry_title: "वास्तविक समय वायु गुणवत्ता मानचित्र",
+                live_telemetry_desc: "सार्वजनिक सेंसर डेटा, उपग्रह चित्रों और रिपोर्ट की गई वायु प्रदूषण की घटनाओं को दिखाने वाला वास्तविक समय का मानचित्र।",
+                btn_launch_map: "मानचित्र खोलें"
+            },
+            or: {
+                live_map: "ଲାଇଭ୍ ମ୍ୟାପ୍",
+                title: "ପରିବେଶ ନିରୀକ୍ଷଣ ପ୍ରଣାଳୀ (EMS)",
+                subtitle: "ଆପଣଙ୍କର କାର୍ଯ୍ୟକ୍ଷେତ୍ରକୁ ପ୍ରବେଶ କରିବାକୁ କିମ୍ବା ସାର୍ବଜନୀନ ତଥ୍ୟ ଦେଖିବାକୁ ତଳେ ଏକ ବିକଳ୍ପ ଚୟନ କରନ୍ତୁ।",
+                auth_required: "ପ୍ରମାଣୀକରଣ ଆବଶ୍ୟକ: ସୁରକ୍ଷିତ ବ୍ୟବସ୍ଥାଗୁଡିକ ପ୍ରବେଶ କରିବାକୁ ଦୟାକରି ଲଗ୍ଇନ୍ କରନ୍ତୁ",
+                citizen_services: "ନାଗରିକ ପୋର୍ଟାଲ୍",
+                report_pollution: "ବାୟୁ ପ୍ରଦୂଷଣ / ଧୂଆଁ ରିପୋର୍ଟ",
+                citizen_desc: "ଆଞ୍ଚଳିକ ପ୍ରଦୂଷଣ, ଧୂଆଁ କିମ୍ବା ଧୂଳିର ରିପୋର୍ଟ କରନ୍ତୁ, ଫଟୋ ଅପଲୋଡ୍ କରନ୍ତୁ ଏବଂ ସମାଧାନର ସ୍ଥିତି ଟ୍ରାକ୍ କରନ୍ତୁ।",
+                btn_report: "ରିପୋର୍ଟ କରନ୍ତୁ",
+                field_ops: "ଫିଲ୍ଡ ରେସପନ୍ସ ସ୍କ୍ୱାଡ୍",
+                crew_terminal: "ଫିଲ୍ଡ କ୍ରୂ ଟର୍ମିନାଲ୍",
+                crew_desc: "ସ୍ଥାନ ନିର୍ଦ୍ଦେଶାଙ୍କ ପ୍ରାପ୍ତ କରିବା, ବିବରଣୀ ଦେଖିବା ଏବଂ ପ୍ରତିକାର କାର୍ଯ୍ୟର ରିପୋର୍ଟ କରିବା ପାଇଁ ଲଗ୍ଇନ୍ କରନ୍ତୁ।",
+                btn_access_terminal: "ଟର୍ମିନାଲ୍ ପ୍ରବେଶ",
+                official_access: "ପ୍ରଶାସନିକ ପୋର୍ଟାଲ୍",
+                command_center: "ଅଧିକାରୀ ଡ୍ୟାସବୋର୍ଡ",
+                official_desc: "ବାୟୁ ଗୁଣବତ୍ତା ଯାଞ୍ଚ କରିବା, ରିପୋର୍ଟ ସମୀକ୍ଷା କରିବା ଏବଂ କାର୍ଯ୍ୟାନୁଷ୍ଠାନ ଗ୍ରହଣ କରିବା ପାଇଁ ପ୍ରାଧିକୃତ ଅଧିକାରୀ ଲଗ୍ଇନ୍।",
+                btn_enter_console: "ଡ୍ୟାସବୋର୍ଡ ଖୋଲନ୍ତୁ",
+                public_gateway: "ସାର୍ବଜନୀନ ବାୟୁ ଗୁଣବତ୍ତା ଗେଟୱେ",
+                live_telemetry_title: "ରିଅଲ୍-ଟାଇମ୍ ବାୟୁ ଗୁଣବତ୍ତା ମାନଚିତ୍ର",
+                live_telemetry_desc: "ସାର୍ବଜନୀନ ସେନ୍ସର ଡାଟା, ସାଟେଲାଇଟ୍ ଚିତ୍ର ଏବଂ ରିପୋର୍ଟ ହୋଇଥିବା ପ୍ରଦୂଷଣକୁ ଏକତ୍ର କରୁଥିବା ମାନଚିତ୍ର।",
+                btn_launch_map: "ମାନଚିତ୍ର ଖୋଲନ୍ତୁ"
+            }
+        };
+
+        function setLanguage(lang) {
+            localStorage.setItem('ems-lang', lang);
+            document.getElementById('language-select').value = lang;
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.getAttribute('data-translate');
+                if (translations[lang] && translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+        }
+
+        document.getElementById('language-select').addEventListener('change', (e) => {
+            setLanguage(e.target.value);
+        });
+
+        // Initialize Language
+        const savedLang = localStorage.getItem('ems-lang') || 'en';
+        window.addEventListener('DOMContentLoaded', () => {
+            setLanguage(savedLang);
+        });
+
+    </script>
+</body>
+</html>

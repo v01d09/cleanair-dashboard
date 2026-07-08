@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Existing Rule: Open access tracking arrays
+    match /verified_incidents/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null; 
+    }
+    
+    // Existing Rule: Legacy structural reference container
+    match /government_officers/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // NEW SECURITY PROTOCOL: Authorize user authentication profiles
+    // Allows citizens and officers to securely read their own individual records
+    match /registered_citizens/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /registered_gov/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // NEW SECURITY PROTOCOL: Intake Safeguard Storage Block
+    // Allows any authenticated user to stage data into the intake buffer
+    match /web_holding_bay/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // NEW SECURITY PROTOCOL: Operations Field Crews
+    // Allows authenticated crews to log in, geolocate, and officers to dispatch/view telemetry
+    match /dispatch_crews/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // NEW SECURITY PROTOCOL: Spam Moderation Storage Block
+    // Allows authenticated officers to read, approve, and delete flagged spam reports
+    match /not_verified/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
