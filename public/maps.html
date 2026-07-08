@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environmental Management System (EMS)</title>
+    
+    <link rel="icon" href="data:,">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+        
+        // Prevent layout/theme flicker by checking local storage before render
+        (function() {
+            const savedTheme = localStorage.getItem('ems-theme') || 'light';
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+        #google-map-canvas { height: 100%; width: 100%; z-index: 1; }
+        .airnow-nav { background-color: #111827; height: 56px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .drawer-transition { transition: transform 0.3s ease-in-out; }
+        
+        /* Hide scrollbars for cleaner mobile modal */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Dark mode overrides */
+        html.dark .leaflet-container { background: #1a1a1a; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 flex flex-col h-[100dvh] transition-colors duration-300">
+
+    <header class="w-full bg-white/85 dark:bg-gray-950/85 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-3.5 flex flex-col md:flex-row justify-between items-center shadow-sm sticky top-0 z-50 transition-all duration-300">
+        <div class="w-full md:w-auto flex justify-between items-center">
+            <a href="index.html" class="flex items-center space-x-2.5 text-gray-800 dark:text-white hover:opacity-90 transition">
+                <div class="bg-gradient-to-tr from-blue-600 to-cyan-500 p-2 rounded-lg shadow-md shadow-blue-500/10 flex items-center justify-center">
+                    <i class="fa-solid fa-satellite-dish text-white text-xs md:text-sm"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-black tracking-widest text-sm md:text-base uppercase leading-none text-gray-950 dark:text-white">EMS</span>
+                    <span class="text-[8px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mt-0.5 font-sans">Clean Air Command</span>
+                </div>
+            </a>
+            
+            <div class="flex items-center space-x-2 md:hidden">
+                <!-- Space-optimized Dropdown Selection -->
+                <div class="relative">
+                    <select id="language-select-mobile" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-850 rounded-lg px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-300 focus:outline-none transition shadow-sm cursor-pointer">
+                        <option value="en">🌐 EN</option>
+                        <option value="hi">🌐 हिन्दी</option>
+                        <option value="or">🌐 ଓଡ଼ିଆ</option>
+                    </select>
+                </div>
+                <button id="theme-toggle-btn-mobile" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 flex items-center justify-center shadow-sm" title="Toggle Theme">
+                    <i class="fa-solid fa-moon text-xs" id="theme-icon-mobile"></i>
+                </button>
+                <button id="mobile-hamburger-btn" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-bars text-xs"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Desktop Nav Items -->
+        <div class="hidden md:flex items-center space-x-2 sm:space-x-3 md:space-x-4">
+            <!-- Space-optimized Dropdown Selection -->
+            <div class="relative">
+                <select id="language-select" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg px-2.5 py-1.5 text-[10px] md:text-xs font-bold text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition shadow-sm cursor-pointer">
+                    <option value="en">🌐 EN</option>
+                    <option value="hi">🌐 हिन्दी</option>
+                    <option value="or">🌐 ଓଡ଼ିଆ</option>
+                </select>
+            </div>
+            <a href="index.html" class="text-[10px] md:text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-3 py-1.5 rounded-lg shadow-sm">
+                <i class="fa-solid fa-house mr-1.5 text-xs text-blue-600 dark:text-blue-400"></i><span data-translate="home">Home</span>
+            </a>
+            <div class="h-4 w-px bg-gray-200 dark:bg-gray-800"></div>
+            <button id="theme-toggle-btn" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500 transition-all duration-200 flex items-center justify-center shadow-sm" title="Toggle Theme">
+                <i class="fa-solid fa-moon text-xs" id="theme-icon"></i>
+            </button>
+            
+            <div id="user-profile-container" class="hidden relative">
+                <button id="user-menu-btn" class="flex items-center space-x-1.5 bg-gray-50 dark:bg-gray-900 hover:bg-gray-255 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-200 transition-colors border border-gray-200 dark:border-gray-800 shadow-sm">
+                    <i class="fa-solid fa-user text-blue-600 dark:text-blue-400 text-xs sm:text-sm"></i>
+                    <span id="nav-user-name">Loading...</span>
+                    <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>
+                </button>
+                
+                <div id="auth-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 py-1.5 z-50 transition-colors">
+                    <button id="logout-btn" class="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 font-bold uppercase tracking-wide flex items-center transition-colors text-[10px] sm:text-xs">
+                        <i class="fa-solid fa-power-off mr-2"></i> Sign Out
+                    </button>
+                </div>
+            </div>
+
+            <button id="drawer-toggle-btn" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500 transition-all duration-200 flex items-center justify-center shadow-sm" title="Map Control Engine">
+                <i class="fa-solid fa-sliders text-xs"></i>
+            </button>
+        </div>
+
+        <!-- Mobile Nav Dropdown -->
+        <div id="mobile-menu-container" class="hidden w-full flex flex-col bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl p-4 space-y-3 mt-2">
+            <a href="index.html" class="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-850 px-4 py-2.5 rounded-lg shadow-sm">
+                <i class="fa-solid fa-house mr-2 text-blue-600"></i><span data-translate="home">Home</span>
+            </a>
+            <button id="drawer-toggle-btn-mobile" class="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-850 px-4 py-2.5 rounded-lg shadow-sm w-full text-left">
+                <i class="fa-solid fa-sliders mr-2 text-blue-600"></i><span data-translate="active_layers">Active Environmental Layers</span>
+            </button>
+            <div id="mobile-user-profile-container" class="hidden flex flex-col space-y-2 border-t border-gray-100 dark:border-gray-805 pt-3">
+                <div class="flex items-center space-x-2 px-2 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase">
+                    <i class="fa-solid fa-user text-blue-600"></i>
+                    <span id="nav-user-name-mobile">Loading...</span>
+                </div>
+                <button id="logout-btn-mobile" class="w-full text-left px-4 py-2.5 bg-red-50 dark:bg-red-950/20 text-red-600 font-bold uppercase tracking-wide flex items-center transition-colors rounded-lg text-xs">
+                    <i class="fa-solid fa-power-off mr-2"></i> Sign Out
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="relative flex-grow bg-gray-900 overflow-hidden">
+        
+        <div id="google-map-canvas" class="absolute inset-0"></div>
+
+        <!-- Floating Map Legend (Desktop Only) -->
+        <div id="map-legend" class="hidden md:block absolute bottom-6 left-6 z-[40] bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-800 rounded-md shadow-md p-4 w-72 transition-all duration-200">
+            <div class="font-extrabold uppercase tracking-wide text-gray-800 dark:text-gray-200 text-xs mb-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-map text-blue-600 dark:text-blue-400"></i>
+                    <span data-translate="map_legend">Map Legend</span>
+                </div>
+                <button id="legend-toggle-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-white p-1 transition-colors focus:outline-none" title="Toggle Legend">
+                    <i id="legend-toggle-icon" class="fa-solid fa-chevron-down"></i>
+                </button>
+            </div>
+            <div id="legend-content" class="space-y-3 text-[11px] font-bold text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-slate-800 pt-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-5 h-0.5 border-t-2 border-dashed border-red-500 shrink-0"></div>
+                    <span>Geofenced Boundary (Operational Zones)</span>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-2.5 h-2.5 bg-black border border-white dark:border-gray-700 rotate-45 shrink-0 ml-1"></div>
+                    <span>Telemetry Sensor Node (Pure Black Diamond)</span>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <div class="flex gap-1.5 items-center shrink-0">
+                        <span class="w-2.5 h-2.5 bg-red-500 border border-red-700 block rounded-sm"></span>
+                        <span class="w-2.5 h-2.5 bg-yellow-400 border border-yellow-600 block rounded-sm"></span>
+                        <span class="w-2.5 h-2.5 bg-emerald-500 border border-emerald-700 block rounded-sm"></span>
+                    </div>
+                    <span>Hotspots (Red=Critical, Yellow=Medium, Green=Low)</span>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-4 h-4 rounded-full bg-purple-500/25 border border-purple-500/40 shrink-0"></div>
+                    <span>Satellite Smog Plumes (Calculated NDVI)</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="incident-modal" class="hidden absolute bottom-0 left-0 w-full md:top-4 md:bottom-auto md:left-4 md:w-[380px] bg-white dark:bg-gray-800 rounded-t-2xl md:rounded-xl shadow-[0_-8px_30px_rgba(0,0,0,0.15)] md:shadow-2xl border-t-4 md:border-4 border-gray-300 dark:border-gray-600 z-[400] flex-col max-h-[85vh] md:max-h-[80vh] transition-colors">
+            
+            <div class="w-full flex justify-center py-2 md:hidden bg-gray-800 rounded-t-2xl">
+                <div class="w-12 h-1.5 bg-gray-500 rounded-full"></div>
+            </div>
+
+            <div id="modal-header-accent" class="px-5 py-3.5 flex justify-between items-start text-white bg-gray-800 md:rounded-t-lg">
+                <div>
+                    <h3 id="modal-title-display" class="text-base font-black tracking-tight leading-tight uppercase">Tactical Node Record</h3>
+                    <p id="modal-hazard-label" class="text-[10px] font-bold text-white uppercase tracking-wide mt-0.5">HAZARD: UNKNOWN</p>
+                    <p id="modal-severity-label" class="text-[9px] font-semibold opacity-90 uppercase tracking-wide">SEVERITY RATING: --</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-[9px] block font-bold uppercase tracking-widest opacity-80">CALCULATED AQI</span>
+                    <span id="modal-aqi-value" class="text-3xl font-black font-mono tracking-tighter leading-none text-white">--</span>
+                </div>
+            </div>
+
+            <div class="p-5 space-y-5 text-xs text-gray-700 dark:text-gray-200 overflow-y-auto flex-grow pb-8 md:pb-5">
+                
+                <div id="evidence-container" class="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 shadow-inner bg-gray-100 dark:bg-gray-900 relative group flex items-center justify-center transition-colors">
+                    <span class="absolute top-2 left-2 bg-black/70 text-white text-[9px] font-bold px-2.5 py-1 rounded uppercase tracking-wider backdrop-blur-sm z-20">
+                        Secure Transmission Media
+                    </span>
+                    
+                    <img id="modal-evidence-img" src="" alt="Incident Asset" class="w-full h-48 object-cover hidden relative z-10">
+                    
+                    <div id="cors-fallback-btn" class="hidden w-full h-[120px] flex items-center justify-center bg-gray-100 dark:bg-gray-800 z-30 p-5">
+                        <a id="secure-image-link" href="#" target="_blank" class="bg-blue-800 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-center w-full uppercase tracking-wider shadow-md transition-colors">
+                            <i class="fa-solid fa-arrow-up-right-from-square mr-2"></i>Open Image
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button id="dismiss-modal-btn" class="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold uppercase tracking-wider px-4 py-3 rounded-lg transition-colors shadow-sm">
+                        Dismiss Record
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <aside id="settings-drawer" class="absolute top-0 right-0 h-full w-full md:w-[340px] bg-white dark:bg-gray-800 shadow-2xl border-l border-gray-200 dark:border-gray-700 z-[500] translate-x-full drawer-transition flex flex-col transition-colors">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900 transition-colors">
+                <h2 class="text-sm font-black text-gray-800 dark:text-white uppercase tracking-wider flex items-center"><i class="fa-solid fa-layer-group text-blue-600 mr-2"></i>Control Engine Settings</h2>
+                <button id="drawer-close-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <div class="p-6 flex-grow overflow-y-auto space-y-6 text-sm text-gray-700 dark:text-gray-300">
+
+
+                <div class="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden shadow-sm transition-colors">
+                    <div class="bg-gray-100 dark:bg-gray-900 px-5 py-3.5 border-b border-gray-200 dark:border-gray-600 font-extrabold uppercase tracking-wide text-gray-800 dark:text-gray-200 transition-colors text-xs" data-translate="active_layers">
+                        Active Environmental Layers
+                    </div>
+                    
+                    <div class="p-5 space-y-5 bg-white dark:bg-gray-800 transition-colors">
+                        <label class="flex items-center justify-between cursor-pointer group">
+                            <span class="font-bold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition flex items-center text-xs" data-translate="layer_citizen">
+                                Citizen Verified Incidents
+                            </span>
+                            <input type="checkbox" id="layer-citizen" checked class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-500 rounded focus:ring-blue-500">
+                        </label>
+                        
+                        <label class="flex items-center justify-between cursor-pointer group">
+                            <span class="font-bold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition flex items-center text-xs" data-translate="layer_sensors">
+                                Local Telemetry Sensors (PM2.5)
+                            </span>
+                            <input type="checkbox" id="layer-sensors" checked class="w-4 h-4 text-emerald-600 border-gray-300 dark:border-gray-500 rounded focus:ring-emerald-500">
+                        </label>
+                        
+                        <label class="flex items-center justify-between cursor-pointer group">
+                            <span class="font-bold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition flex items-center text-xs" data-translate="layer_satellite">
+                                Satellite Smog Columns (NDVI)
+                            </span>
+                            <input type="checkbox" id="layer-satellite" checked class="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-500 rounded focus:ring-purple-500">
+                        </label>
+                        
+                        <label class="flex items-center justify-between cursor-pointer group">
+                            <span class="font-bold text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition flex items-center text-xs" data-translate="layer_aqi">
+                                Global AQI Heatmap Engine
+                            </span>
+                            <input type="checkbox" id="layer-gmap-aqi" class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-500 rounded focus:ring-blue-500">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden shadow-sm transition-colors">
+                    <div class="bg-gray-100 dark:bg-gray-900 px-5 py-3.5 border-b border-gray-200 dark:border-gray-600 font-extrabold uppercase tracking-wide text-gray-800 dark:text-gray-200 transition-colors text-xs" data-translate="gradient_index">
+                        Air Quality Gradient Index
+                    </div>
+                    <div class="p-4 bg-white dark:bg-gray-800 space-y-2">
+                        <div class="h-3 w-full rounded bg-gradient-to-r from-emerald-500 via-yellow-400 via-orange-500 via-red-500 to-purple-600 mb-2"></div>
+                        <div class="flex justify-between text-[10px] font-bold text-gray-500 dark:text-gray-400 px-1">
+                            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div>0-50</div>
+                            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-yellow-400"></div>51-100</div>
+                            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-orange-500"></div>101-150</div>
+                            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-red-500"></div>151-200</div>
+                            <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-purple-600"></div>201+</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="md:hidden border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden shadow-sm transition-colors">
+                    <div class="bg-gray-100 dark:bg-gray-900 px-5 py-3.5 border-b border-gray-200 dark:border-gray-600 font-extrabold uppercase tracking-wide text-gray-800 dark:text-gray-200 transition-colors text-xs" data-translate="map_legend">
+                        Map Legend
+                    </div>
+                    <div class="p-4 bg-white dark:bg-gray-800 space-y-3 text-[11px] font-bold text-gray-600 dark:text-gray-400">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-5 h-0.5 border-t-2 border-dashed border-red-500 shrink-0"></div>
+                            <span>Geofenced Boundary (Operational Zones)</span>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-2.5 h-2.5 bg-black border border-white dark:border-gray-700 rotate-45 shrink-0 ml-1"></div>
+                            <span>Telemetry Sensor Node (Pure Black Diamond)</span>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <div class="flex gap-1 items-center shrink-0">
+                                <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                                <div class="w-2 h-2 rounded-full bg-yellow-400"></div>
+                                <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            </div>
+                            <span>Hotspots (Red=Critical, Yellow=Medium, Green=Low)</span>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-4 h-4 rounded-full bg-purple-500/25 border border-purple-500/40 shrink-0"></div>
+                            <span>Satellite Smog Plumes (Calculated NDVI)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden shadow-sm transition-colors">
+                    <div class="bg-gray-100 dark:bg-gray-900 px-5 py-3.5 border-b border-gray-200 dark:border-gray-600 font-extrabold uppercase tracking-wide text-gray-800 dark:text-gray-200 transition-colors text-xs" data-translate="sys_status">
+                        System & Telemetry Status
+                    </div>
+                    <div class="p-4 bg-white dark:bg-gray-800 space-y-3 font-mono text-[11px]">
+                        <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                            <span class="text-gray-500 uppercase font-sans font-bold" data-translate="network_core">Network Core:</span>
+                            <span class="text-emerald-500 font-bold">OPERATIONAL</span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                            <span class="text-gray-500 uppercase font-sans font-bold" data-translate="active_hotspots">Active Hotspots:</span>
+                            <span id="telemetry-hotspots-count" class="text-white bg-blue-600 px-1.5 py-0.5 rounded font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500 uppercase font-sans font-bold" data-translate="dispatches">Active Dispatches:</span>
+                            <span id="telemetry-dispatches-count" class="text-gray-400">0 ACTIVE CREWS</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+    </div>
+
+    <footer class="bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 transition-colors duration-300 w-full shrink-0">
+        <div class="max-w-7xl mx-auto px-4 py-3 md:py-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 md:gap-6 text-xs text-gray-500 dark:text-gray-400">
+            <div class="hidden md:flex items-center space-x-3">
+                <div class="bg-blue-50 dark:bg-gray-900 p-1.5 rounded-lg border border-blue-100 dark:border-gray-800">
+                    <i class="fa-solid fa-satellite-dish text-blue-600 dark:text-blue-400 text-sm"></i>
+                </div>
+                <div>
+                    <span class="font-black tracking-widest uppercase text-gray-900 dark:text-white">EMS</span>
+                    <span class="block text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">Clean Air Command</span>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap justify-center gap-x-4 sm:gap-x-6 gap-y-1.5 font-bold uppercase tracking-wider text-[9px] w-full md:w-auto">
+                <a href="index.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-house"></i> Home</a>
+                <a href="maps.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-map-location-dot"></i> Live Map</a>
+                <a href="citizen.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-user-astronaut"></i> Report</a>
+                <a href="crew_login.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-truck-fast"></i> Crew</a>
+                <a href="gov.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-building-shield"></i> Official</a>
+            </div>
+            
+            <div class="hidden md:flex font-mono text-[9px] text-gray-400 dark:text-gray-600 uppercase tracking-widest items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-emerald-500 dark:text-emerald-600"></i> AES-256 Command Protocol
+            </div>
+        </div>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMzuLbJvBKf7Ivxtd6FbWDYp_hV0GD1TM",
+            authDomain: "void-501114.firebaseapp.com",
+            projectId: "void-501114",
+            storageBucket: "void-501114.firebasestorage.app",
+            messagingSenderId: "715581482123",
+            appId: "1:715581482123:web:abc16633b73f2934a4208e"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app, "clean"); 
+        const auth = getAuth(app);
+
+        const GOOGLE_MAPS_API_KEY = "AIzaSyBHw21_6tFjmqWVi0ESeIyHgokXAzJivO8";
+
+        let map;
+        let activeMarkersArray = [];
+        let googleAqiOverlayObject = null;
+        let firestoreUnsubscribeStream = null;
+
+        const cleanBaseStylers = [
+            { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+            { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
+            { featureType: "landscape.man_made", elementType: "labels", stylers: [{ visibility: "off" }] },
+            { featureType: "administrative.neighborhood", elementType: "labels", stylers: [{ visibility: "off" }] },
+            { featureType: "administrative.locality", elementType: "labels", stylers: [{ visibility: "off" }] } 
+        ];
+
+        const lightModeStyles = [...cleanBaseStylers];
+        const darkModeStyles = [
+            ...cleanBaseStylers,
+            { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+            { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+            { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+            { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+            { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+            { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] }
+        ];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            
+            const htmlElement = document.documentElement;
+            const darkModeToggle = document.getElementById('dark-mode-toggle');
+            const drawer = document.getElementById('settings-drawer');
+            const modal = document.getElementById('incident-modal');
+            let activeInfoWindow = null;
+            
+            const userMenuBtn = document.getElementById('user-menu-btn');
+            const authDropdown = document.getElementById('auth-dropdown');
+            const userProfileContainer = document.getElementById('user-profile-container');
+            const navUserName = document.getElementById('nav-user-name');
+            const logoutBtn = document.getElementById('logout-btn');
+            
+            const dismissBtn = document.getElementById('dismiss-modal-btn');
+            const drawerToggleBtn = document.getElementById('drawer-toggle-btn');
+            const drawerToggleBtnMobile = document.getElementById('drawer-toggle-btn-mobile');
+            const drawerCloseBtn = document.getElementById('drawer-close-btn');
+
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const themeIcon = document.getElementById('theme-icon');
+            const themeToggleBtnMobile = document.getElementById('theme-toggle-btn-mobile');
+            const themeIconMobile = document.getElementById('theme-icon-mobile');
+
+            // Sync initial state for the header icon and checkbox
+            if (darkModeToggle) darkModeToggle.checked = htmlElement.classList.contains('dark');
+            if (htmlElement.classList.contains('dark')) {
+                if (themeIcon) { themeIcon.className = "fa-solid fa-sun text-xs"; }
+                if (themeIconMobile) { themeIconMobile.className = "fa-solid fa-sun text-xs"; }
+            } else {
+                if (themeIcon) { themeIcon.className = "fa-solid fa-moon text-xs"; }
+                if (themeIconMobile) { themeIconMobile.className = "fa-solid fa-moon text-xs"; }
+            }
+
+            const applyDarkOrLightModeStyles = (isDark) => {
+                if (darkModeToggle) darkModeToggle.checked = isDark;
+                if (isDark) {
+                    htmlElement.classList.add('dark');
+                    localStorage.setItem('ems-theme', 'dark');
+                    if (themeIcon) { themeIcon.className = "fa-solid fa-sun text-xs"; }
+                    if (themeIconMobile) { themeIconMobile.className = "fa-solid fa-sun text-xs"; }
+                    if (map) map.setOptions({ styles: darkModeStyles });
+                } else {
+                    htmlElement.classList.remove('dark');
+                    localStorage.setItem('ems-theme', 'light');
+                    if (themeIcon) { themeIcon.className = "fa-solid fa-moon text-xs"; }
+                    if (themeIconMobile) { themeIconMobile.className = "fa-solid fa-moon text-xs"; }
+                    if (map) map.setOptions({ styles: lightModeStyles });
+                }
+            };
+
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', () => {
+                    const isDark = !htmlElement.classList.contains('dark');
+                    applyDarkOrLightModeStyles(isDark);
+                });
+            }
+
+            if (themeToggleBtnMobile) {
+                themeToggleBtnMobile.addEventListener('click', () => {
+                    const isDark = !htmlElement.classList.contains('dark');
+                    applyDarkOrLightModeStyles(isDark);
+                });
+            }
+
+            if (darkModeToggle) {
+                darkModeToggle.addEventListener('change', (e) => {
+                    applyDarkOrLightModeStyles(e.target.checked);
+                });
+            }
+
+            // Drawer Toggles
+            const toggleSettingsDrawer = (e) => {
+                e.stopPropagation();
+                drawer.classList.toggle('translate-x-full');
+                if (window.innerWidth < 768) {
+                    modal.classList.add('hidden');
+                    const mobileMenu = document.getElementById('mobile-menu-container');
+                    if (mobileMenu) mobileMenu.classList.add('hidden');
+                }
+            };
+
+            if (drawerToggleBtn) drawerToggleBtn.addEventListener('click', toggleSettingsDrawer);
+            if (drawerToggleBtnMobile) drawerToggleBtnMobile.addEventListener('click', toggleSettingsDrawer);
+
+            drawerCloseBtn.addEventListener('click', () => {
+                drawer.classList.add('translate-x-full');
+            });
+
+            // Mobile Hamburger menu toggle
+            const mobileHamburgerBtn = document.getElementById('mobile-hamburger-btn');
+            const mobileMenuContainer = document.getElementById('mobile-menu-container');
+            if (mobileHamburgerBtn && mobileMenuContainer) {
+                mobileHamburgerBtn.addEventListener('click', () => {
+                    mobileMenuContainer.classList.toggle('hidden');
+                });
+            }
+
+            dismissBtn.addEventListener('click', () => {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            });
+
+            userMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                authDropdown.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', () => {
+                authDropdown.classList.add('hidden');
+            });
+
+            onAuthStateChanged(auth, async (user) => {
+                const mobileProfile = document.getElementById('mobile-user-profile-container');
+                const navUserNameMobile = document.getElementById('nav-user-name-mobile');
+                if (user) {
+                    if (userProfileContainer) userProfileContainer.classList.remove('hidden');
+                    if (mobileProfile) mobileProfile.classList.remove('hidden');
+                    try {
+                        let userDoc = await getDoc(doc(db, "registered_citizens", user.uid));
+                        if (!userDoc.exists()) {
+                            userDoc = await getDoc(doc(db, "government_officers", user.uid));
+                        }
+                        
+                        if (userDoc.exists() && userDoc.data().name) {
+                            const fullName = userDoc.data().name;
+                            if (navUserName) navUserName.innerText = fullName.split(' ')[0];
+                            if (navUserNameMobile) navUserNameMobile.innerText = fullName.split(' ')[0];
+                        } else {
+                            if (navUserName) navUserName.innerText = "User";
+                            if (navUserNameMobile) navUserNameMobile.innerText = "User";
+                        }
+                    } catch (error) {
+                        console.error("Profile query mismatch configuration exceptions:", error);
+                        if (navUserName) navUserName.innerText = "User";
+                        if (navUserNameMobile) navUserNameMobile.innerText = "User";
+                    }
+                } else {
+                    if (userProfileContainer) userProfileContainer.classList.add('hidden');
+                    if (mobileProfile) mobileProfile.classList.add('hidden');
+                }
+            });
+
+            // FIXED: Added &loading=async to resolve the console warning
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry&loading=async&callback=initGoogleMapCanvasComponent`;
+            script.async = true;
+            script.defer = true;
+            window.initGoogleMapCanvasComponent = initGoogleMapCanvasComponent;
+            document.head.appendChild(script);
+
+            async function initGoogleMapCanvasComponent() {
+                const mapContainer = document.getElementById("google-map-canvas");
+                
+                const bhubaneswarBounds = {
+                    north: 20.40,
+                    south: 20.20,
+                    west: 85.70,
+                    east: 85.95
+                };
+
+                map = new google.maps.Map(mapContainer, {
+                    center: { lat: 20.320, lng: 85.815 }, 
+                    zoom: 13.5,
+                    minZoom: 12,
+                    maxZoom: 17,
+                    restriction: {
+                        latLngBounds: bhubaneswarBounds,
+                        strictBounds: false
+                    },
+                    zoomControl: true,
+                    zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER },
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: false,
+                    gestureHandling: 'greedy', 
+                    styles: htmlElement.classList.contains('dark') ? darkModeStyles : lightModeStyles
+                });
+
+                // HIGH RESOLUTION JAGGED BOUNDARIES - Bypasses APIs entirely for instant rendering
+
+               
+const detailedZonePaths = {
+    "Niladri Vihar": [
+        {lat: 20.331164, lng: 85.797387},
+        {lat: 20.327195, lng: 85.795332},
+        {lat: 20.323444, lng: 85.795568},
+        {lat: 20.322510, lng: 85.802466},
+        {lat: 20.321403, lng: 85.802152},
+        {lat: 20.319164, lng: 85.810519},
+        {lat: 20.321403, lng: 85.811647},
+        {lat: 20.321501, lng: 85.812434},
+        {lat: 20.331242, lng: 85.815634},
+        {lat: 20.330897, lng: 85.809182},
+        {lat: 20.329840, lng: 85.808998},
+        {lat: 20.331164, lng: 85.797387}
+    ],
+    "Sailashree Vihar": [
+        {lat: 20.329775, lng: 85.808972},
+        {lat: 20.331219, lng: 85.797427},
+        {lat: 20.332744, lng: 85.798161},
+        {lat: 20.335930, lng: 85.796750},
+        {lat: 20.338846, lng: 85.798046},
+        {lat: 20.339118, lng: 85.807507},
+        {lat: 20.338245, lng: 85.807541},
+        {lat: 20.338576, lng: 85.810062},
+        {lat: 20.339587, lng: 85.810066},
+        {lat: 20.339614, lng: 85.810475},
+        {lat: 20.340117, lng: 85.810450},
+        {lat: 20.341482, lng: 85.813226},
+        {lat: 20.340209, lng: 85.814042},
+        {lat: 20.339563, lng: 85.813933},
+        {lat: 20.338613, lng: 85.815720},
+        {lat: 20.339273, lng: 85.816169},
+        {lat: 20.337619, lng: 85.820193},
+        {lat: 20.335599, lng: 85.816476},
+        {lat: 20.332981, lng: 85.816082},
+        {lat: 20.333222, lng: 85.813484},
+        {lat: 20.331182, lng: 85.813154},
+        {lat: 20.330903, lng: 85.809142},
+        {lat: 20.329775, lng: 85.808972}
+    ],
+    "Infocity": [
+        {lat: 20.335914, lng: 85.796692},
+        {lat: 20.338750, lng: 85.795909},
+        {lat: 20.343520, lng: 85.798826},
+        {lat: 20.346656, lng: 85.798506},
+        {lat: 20.346105, lng: 85.799146},
+        {lat: 20.348974, lng: 85.803433},
+        {lat: 20.353444, lng: 85.803202},
+        {lat: 20.354544, lng: 85.806902},
+        {lat: 20.342853, lng: 85.807115},
+        {lat: 20.342940, lng: 85.809942},
+        {lat: 20.338629, lng: 85.810086},
+        {lat: 20.338264, lng: 85.807537},
+        {lat: 20.339140, lng: 85.807501},
+        {lat: 20.338944, lng: 85.797984},
+        {lat: 20.335914, lng: 85.796692}
+    ],
+    "Rail Vihar": [
+        {lat: 20.305008, lng: 85.812987},
+        {lat: 20.304974, lng: 85.811574},
+        {lat: 20.306357, lng: 85.811591},
+        {lat: 20.306405, lng: 85.810586},
+        {lat: 20.308226, lng: 85.810603},
+        {lat: 20.308730, lng: 85.808037},
+        {lat: 20.308747, lng: 85.804362},
+        {lat: 20.319406, lng: 85.807776},
+        {lat: 20.319097, lng: 85.810550},
+        {lat: 20.321292, lng: 85.811521},
+        {lat: 20.322332, lng: 85.812682},
+        {lat: 20.321926, lng: 85.814902},
+        {lat: 20.323226, lng: 85.815110},
+        {lat: 20.322641, lng: 85.816895},
+        {lat: 20.320202, lng: 85.816375},
+        {lat: 20.320202, lng: 85.815474},
+        {lat: 20.317520, lng: 85.814728},
+        {lat: 20.317503, lng: 85.813064},
+        {lat: 20.315374, lng: 85.812942},
+        {lat: 20.315130, lng: 85.813931},
+        {lat: 20.311406, lng: 85.813844},
+        {lat: 20.310772, lng: 85.820068},
+        {lat: 20.307845, lng: 85.820283},
+        {lat: 20.307536, lng: 85.819052},
+        {lat: 20.308031, lng: 85.813158},
+        {lat: 20.305008, lng: 85.812987}
+    ],
+    "District Center": [
+        {lat: 20.321158, lng: 85.820372},
+        {lat: 20.321410, lng: 85.816875},
+        {lat: 20.322657, lng: 85.816896},
+        {lat: 20.322981, lng: 85.815220},
+        {lat: 20.321887, lng: 85.814971},
+        {lat: 20.322143, lng: 85.813140},
+        {lat: 20.322350, lng: 85.812703},
+        {lat: 20.323099, lng: 85.813228},
+        {lat: 20.326792, lng: 85.814038},
+        {lat: 20.326309, lng: 85.820671},
+        {lat: 20.321158, lng: 85.820372}
+    ]
+};
+
+                const worldBounds = [
+                    { lat: 20.48, lng: 85.65 },
+                    { lat: 20.15, lng: 85.65 },
+                    { lat: 20.15, lng: 85.98 },
+                    { lat: 20.48, lng: 85.98 }
+                ];
+
+                // Shoelace formula to force clockwise orientation (negative area) for Google Maps holes
+                function forceClockwise(path) {
+                    let area = 0;
+                    for (let i = 0; i < path.length; i++) {
+                        const j = (i + 1) % path.length;
+                        area += path[i].lng * path[j].lat;
+                        area -= path[j].lng * path[i].lat;
+                    }
+                    if (area > 0) { // CCW -> reverse to make it CW
+                        path.reverse();
+                    }
+                    return path;
+                }
+
+                const holes = [];
+
+                Object.keys(detailedZonePaths).forEach(zone => {
+                    const path = detailedZonePaths[zone];
+                    
+                    // Render jagged outline as high-tech dashed RED line
+                    new google.maps.Polyline({
+                        path: [...path, path[0]], // Close the shape loop
+                        strokeColor: "#ef4444",   // Red as requested
+                        strokeOpacity: 0,         // Hide solid line to draw dashes only
+                        icons: [{
+                            icon: {
+                                path: 'M 0,-1.5 0,1.5', // thin light dash
+                                strokeOpacity: 0.7,
+                                strokeColor: "#ef4444",
+                                strokeWeight: 1.2,
+                                scale: 1
+                            },
+                            offset: '0',
+                            repeat: '8px'
+                        }],
+                        map: map,
+                        clickable: false
+                    });
+
+                    // Add Zone Label in Center (clean modern typography)
+                    const latCenter = path.reduce((sum, p) => sum + p.lat, 0) / path.length;
+                    const lngCenter = path.reduce((sum, p) => sum + p.lng, 0) / path.length;
+                    
+                    new google.maps.Marker({
+                        position: { lat: latCenter, lng: lngCenter },
+                        map: map,
+                        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 0 },
+                        label: {
+                            text: zone.toUpperCase(),
+                            color: "#94a3b8", // slate-400 (modern, clean, low-contrast)
+                            fontSize: "9px",
+                            fontWeight: "700",
+                            className: "tracking-widest opacity-85 font-sans"
+                        },
+                        clickable: false
+                    });
+
+                    // Force the operational holes to be Clockwise (opposite of CCW worldBounds)
+                    let safeHolePath = forceClockwise([...path]);
+                    holes.push(safeHolePath);
+                });
+
+                // Apply Dimming Mask to external regions, keeping operational regions bright
+                new google.maps.Polygon({
+                    paths: [worldBounds, ...holes],
+                    fillColor: "#000000",
+                    fillOpacity: 0.3, // Lighter opacity as requested
+                    strokeOpacity: 0,
+                    map: map,
+                    clickable: false
+                });
+
+                map.addListener("click", () => {
+                    modal.classList.add('hidden');
+                    modal.style.display = 'none';
+                    drawer.classList.add('translate-x-full');
+                    if (activeInfoWindow) {
+                        activeInfoWindow.close();
+                        activeInfoWindow = null;
+                    }
+                });
+
+                googleAqiOverlayObject = new google.maps.ImageMapType({
+                    getTileUrl: function(coord, zoom) {
+                        return `https://airquality.googleapis.com/v1/mapTypes/US_AQI/heatmapTiles/${zoom}/${coord.x}/${coord.y}?key=${GOOGLE_MAPS_API_KEY}`;
+                    },
+                    tileSize: new google.maps.Size(256, 256),
+                    opacity: 0.7,
+                    name: "GoogleAQI"
+                });
+
+                toggleCitizenReportsLayer(document.getElementById('layer-citizen').checked);
+                toggleSensorsLayer(document.getElementById('layer-sensors').checked);
+                toggleSatelliteSmogOverlay(document.getElementById('layer-satellite').checked);
+            }
+
+            function getAqiHexColorValue(aqi) {
+                const val = parseInt(aqi) || 0;
+                if (val <= 50) return "#10b981";      
+                if (val <= 100) return "#facc15";     
+                if (val <= 150) return "#f97316";     
+                if (val <= 200) return "#ef4444";     
+                return "#9333ea";                     
+            }
+
+            function loadProtectedImage(url) {
+                const imgEl = document.getElementById('modal-evidence-img');
+                const fallbackBtn = document.getElementById('cors-fallback-btn');
+                const secureLink = document.getElementById('secure-image-link');
+                
+                imgEl.classList.add('hidden');
+                imgEl.src = "";
+                fallbackBtn.classList.add('hidden');
+
+                if (!url) return;
+
+                if (url.includes('twilio.com')) {
+                    const secureProxyUrl = `https://asia-south1-void-501114.cloudfunctions.net/cleanair-core?action=proxy_image&url=${encodeURIComponent(url)}`;
+                    imgEl.src = secureProxyUrl;
+                    imgEl.onload = () => imgEl.classList.remove('hidden');
+                    secureLink.href = secureProxyUrl;
+                    fallbackBtn.classList.remove('hidden');
+                } else {
+                    imgEl.src = url;
+                    imgEl.onload = () => imgEl.classList.remove('hidden');
+                }
+            }
+
+            function getSeverityColor(severity) {
+                const sev = (severity || "").toUpperCase();
+                if (sev === "CRITICAL" || sev === "HIGH") return "#ef4444";
+                if (sev === "MEDIUM" || sev === "MODERATE") return "#eab308";
+                if (sev === "LOW" || sev === "MINOR") return "#10b981";
+                return "#f97316";
+            }
+
+            function toggleCitizenReportsLayer(isEnabled) {
+                activeMarkersArray.forEach(m => m.setMap(null));
+                activeMarkersArray = [];
+
+                if (!isEnabled) {
+                    if (firestoreUnsubscribeStream) firestoreUnsubscribeStream();
+                    document.getElementById('telemetry-hotspots-count').innerText = "0";
+                    window.activeVerifiedIncidents = [];
+                    rebuildSatelliteSmogOverlay();
+                    if (document.getElementById('layer-sensors').checked) {
+                        toggleSensorsLayer(true);
+                    }
+                    return;
+                }
+
+                firestoreUnsubscribeStream = onSnapshot(collection(db, "verified_incidents"), (snapshot) => {
+                    activeMarkersArray.forEach(m => m.setMap(null));
+                    activeMarkersArray = [];
+                    window.activeVerifiedIncidents = [];
+                    
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        if (!data.latitude || !data.longitude) return;
+                        
+                        window.activeVerifiedIncidents.push(data);
+
+                        const severityColor = getSeverityColor(data.severity_level);
+                        const aqiValue = parseInt(data.calculated_local_aqi) || 0;
+                        
+                        const marker = new google.maps.Marker({
+                            position: { lat: parseFloat(data.latitude), lng: parseFloat(data.longitude) },
+                            map: map,
+                            icon: {
+                                path: google.maps.SymbolPath.CIRCLE,
+                                fillColor: severityColor, // color code by severity
+                                fillOpacity: 0.9,
+                                scale: 6, // Smaller scale as requested
+                                strokeColor: '#FFFFFF',
+                                strokeWeight: 1.5, // Thinner border
+                            }
+                        });
+
+                        marker.addListener('click', () => {
+                            if(window.innerWidth < 768) {
+                                map.panTo(marker.getPosition());
+                                map.panBy(0, window.innerHeight * 0.25); 
+                            }
+                            
+                            document.getElementById('modal-header-accent').style.backgroundColor = severityColor;
+                            document.getElementById('modal-hazard-label').innerText = `HAZARD: ${data.hazard_type || "UNCLASSIFIED"}`;
+                            document.getElementById('modal-severity-label').innerText = `SEVERITY: ${data.severity_level || "PENDING"}`;
+                            document.getElementById('modal-aqi-value').innerText = aqiValue || "--";
+
+                            loadProtectedImage(data.citizen_image);
+                            
+                            modal.classList.remove('hidden');
+                            modal.style.display = 'flex';
+                        });
+                        activeMarkersArray.push(marker);
+                    });
+                    
+                    document.getElementById('telemetry-hotspots-count').innerText = activeMarkersArray.length;
+
+                    let activeCrews = 0;
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const status = data.status || "PENDING";
+                        if (status === "MIST_CANNON_DEPLOYED" || status === "CLEANUP_CREW_DEPLOYED" || status === "DEPLOYED") {
+                            activeCrews++;
+                        }
+                    });
+                    document.getElementById('telemetry-dispatches-count').innerText = `${activeCrews} ACTIVE CREWS`;
+
+                    // Rebuild overlays dynamically
+                    rebuildSatelliteSmogOverlay();
+                    if (document.getElementById('layer-sensors').checked) {
+                        toggleSensorsLayer(true);
+                    }
+                });
+            }
+
+            // =====================================================================
+            // STATIC SIMULATED SENSORS LAYER
+            // =====================================================================
+            const mockSensors = [
+                { id: "SEN-001", name: "Niladri Vihar Block A Node", lat: 20.326175, lng: 85.800478, aqi: 142, pm25: 58 },
+                { id: "SEN-002", name: "Niladri Vihar Block B Node", lat: 20.325276, lng: 85.808492, aqi: 88, pm25: 29 },
+                { id: "SEN-003", name: "Rail Vihar Station Sensor Node", lat: 20.314911, lng: 85.810003, aqi: 125, pm25: 45 },
+                { id: "SEN-004", name: "District Center Telemetry Hub", lat: 20.324647, lng: 85.815915, aqi: 195, pm25: 110 },
+                { id: "SEN-005", name: "Sailashree Vihar Block C Node", lat: 20.337478, lng: 85.802280, aqi: 48, pm25: 12 },
+                { id: "SEN-006", name: "Sailashree Vihar Market Hub", lat: 20.333599, lng: 85.809629, aqi: 95, pm25: 33 },
+                { id: "SEN-007", name: "Infocity IT Corridor Node", lat: 20.342751, lng: 85.807329, aqi: 245, pm25: 180 },
+                { id: "SEN-008", name: "Patia Square Boundary Sensor", lat: 20.344000, lng: 85.812000, aqi: 165, pm25: 85 }
+            ];
+            let activeSensorMarkers = [];
+
+            function toggleSensorsLayer(isEnabled) {
+                activeSensorMarkers.forEach(m => m.setMap(null));
+                activeSensorMarkers = [];
+
+                if (!isEnabled) return;
+
+                const getDistance = (lat1, lon1, lat2, lon2) => {
+                    const R = 6371e3; // meters
+                    const phi1 = lat1 * Math.PI/180;
+                    const phi2 = lat2 * Math.PI/180;
+                    const deltaPhi = (lat2-lat1) * Math.PI/180;
+                    const deltaLambda = (lon2-lon1) * Math.PI/180;
+                    const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                              Math.cos(phi1) * Math.cos(phi2) *
+                              Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    return R * c;
+                };
+
+                window.activeVerifiedIncidents = window.activeVerifiedIncidents || [];
+
+                mockSensors.forEach(sensor => {
+                    // Calculate dynamic shifts based on reports within 500m
+                    let aqiOffset = 0;
+                    let pm25Offset = 0;
+                    let hotspotsCount500m = 0;
+
+                    window.activeVerifiedIncidents.forEach(inc => {
+                        const dist = getDistance(sensor.lat, sensor.lng, parseFloat(inc.latitude), parseFloat(inc.longitude));
+                        if (dist <= 500) {
+                            hotspotsCount500m++;
+                            const sev = (inc.severity_level || "").toUpperCase();
+                            if (sev === "CRITICAL" || sev === "HIGH") {
+                                aqiOffset += 60;
+                                pm25Offset += 25;
+                            } else if (sev === "MEDIUM" || sev === "MODERATE") {
+                                aqiOffset += 30;
+                                pm25Offset += 12;
+                            } else { // LOW/MINOR
+                                aqiOffset += 10;
+                                pm25Offset += 4;
+                            }
+                        }
+                    });
+
+                    const dynamicAqi = Math.min(500, sensor.aqi + aqiOffset);
+                    const dynamicPm25 = Math.min(350, sensor.pm25 + pm25Offset);
+
+                    const marker = new google.maps.Marker({
+                        position: { lat: sensor.lat, lng: sensor.lng },
+                        map: map,
+                        title: sensor.name,
+                        icon: {
+                            path: "M 0,-5.5 L 5.5,0 L 0,5.5 L -5.5,0 Z", // Sleek cyber-diamond shape
+                            fillColor: "#000000", // Pure black as requested
+                            fillOpacity: 1.0,
+                            strokeColor: "#FFFFFF",
+                            strokeWeight: 1.5,
+                            scale: 1.2
+                        }
+                    });
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div class="p-2.5 font-sans text-xs min-w-[200px] text-gray-800">
+                                <div class="flex justify-between items-center mb-1 pb-1 border-b">
+                                    <span class="font-black text-[8px] uppercase tracking-wider text-emerald-600">DYNAMIC SENSOR NODE</span>
+                                    <span class="font-mono font-bold text-[8px] bg-emerald-100 text-emerald-800 px-1 rounded">${sensor.id}</span>
+                                </div>
+                                <h4 class="font-black uppercase tracking-tight text-gray-900 text-xs mb-1">${sensor.name}</h4>
+                                <div class="grid grid-cols-2 gap-1.5 border-t border-gray-100 pt-1.5 font-semibold mt-1">
+                                    <div class="bg-gray-50 p-1 rounded">
+                                        <span class="block text-[7px] text-gray-400 uppercase">Calculated AQI</span>
+                                        <span class="text-xs font-black text-gray-900">${dynamicAqi}</span>
+                                    </div>
+                                    <div class="bg-gray-50 p-1 rounded">
+                                        <span class="block text-[7px] text-gray-400 uppercase">PM2.5 Sensor</span>
+                                        <span class="text-xs font-black text-gray-900">${dynamicPm25} µg</span>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-[8px] font-bold text-gray-500 uppercase flex justify-between">
+                                    <span>Hotspots within 500m:</span>
+                                    <span class="${hotspotsCount500m > 0 ? 'text-red-500 font-black' : 'text-gray-400'}">${hotspotsCount500m}</span>
+                                </div>
+                                <div class="mt-1 text-[7px] text-gray-400 font-mono">Status: Calibrated & Transmitting</div>
+                            </div>
+                        `
+                    });
+
+                    marker.addListener('click', () => {
+                        if (activeInfoWindow) activeInfoWindow.close();
+                        activeInfoWindow = infoWindow;
+                        infoWindow.open(map, marker);
+                    });
+                    activeSensorMarkers.push(marker);
+                });
+            }
+
+            // =====================================================================
+            // SATELLITE PLUME CORRELATION OVERLAY (NDVI / Particulate Columns)
+            // =====================================================================
+            let activeSatelliteOverlays = [];
+
+            const zoneCenters = {
+                "Niladri Vihar": { lat: 20.326175, lng: 85.800478 },
+                "Sailashree Vihar": { lat: 20.337478, lng: 85.802280 },
+                "Infocity": { lat: 20.342751, lng: 85.807329 },
+                "Rail Vihar": { lat: 20.314911, lng: 85.810003 },
+                "District Center": { lat: 20.324647, lng: 85.815915 }
+            };
+
+            function rebuildSatelliteSmogOverlay() {
+                activeSatelliteOverlays.forEach(c => c.setMap(null));
+                activeSatelliteOverlays = [];
+
+                if (!document.getElementById('layer-satellite').checked) return;
+
+                // Group active incidents by closest zone center
+                const groupedIncidents = {
+                    "Niladri Vihar": [],
+                    "Sailashree Vihar": [],
+                    "Infocity": [],
+                    "Rail Vihar": [],
+                    "District Center": []
+                };
+
+                const getDistance = (lat1, lon1, lat2, lon2) => {
+                    const R = 6371e3; // meters
+                    const phi1 = lat1 * Math.PI/180;
+                    const phi2 = lat2 * Math.PI/180;
+                    const deltaPhi = (lat2-lat1) * Math.PI/180;
+                    const deltaLambda = (lon2-lon1) * Math.PI/180;
+                    const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                              Math.cos(phi1) * Math.cos(phi2) *
+                              Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    return R * c;
+                };
+
+                window.activeVerifiedIncidents = window.activeVerifiedIncidents || [];
+
+                window.activeVerifiedIncidents.forEach(inc => {
+                    const lat = parseFloat(inc.latitude);
+                    const lng = parseFloat(inc.longitude);
+                    let minDistance = Infinity;
+                    let closestZone = null;
+
+                    Object.keys(zoneCenters).forEach(zone => {
+                        const dist = getDistance(lat, lng, zoneCenters[zone].lat, zoneCenters[zone].lng);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                            closestZone = zone;
+                        }
+                    });
+
+                    // Assign to closest zone if within 2.5 km
+                    if (closestZone && minDistance < 2500) {
+                        groupedIncidents[closestZone].push(inc);
+                    }
+                });
+
+                Object.keys(zoneCenters).forEach(zone => {
+                    const incidents = groupedIncidents[zone];
+                    let centerLat = zoneCenters[zone].lat;
+                    let centerLng = zoneCenters[zone].lng;
+                    let radius = 150; // Baseline default (smaller radius to prevent overlaps)
+                    let color = "#eab308"; // Light smog warning by default
+                    let opacity = 0.15;
+                    let ndvi = 0.22;
+                    let statusLabel = "Elevated Smog Column (Low Density)";
+                    let count = incidents.length;
+                    let avgAqi = 0;
+
+                    if (count > 0) {
+                        let sumLat = 0, sumLng = 0, sumAqi = 0;
+                        incidents.forEach(inc => {
+                            sumLat += parseFloat(inc.latitude);
+                            sumLng += parseFloat(inc.longitude);
+                            sumAqi += parseInt(inc.calculated_local_aqi) || 0;
+                        });
+                        centerLat = sumLat / count;
+                        centerLng = sumLng / count;
+                        avgAqi = sumAqi / count;
+
+                        radius = Math.min(500, 150 + (count * 50)); // smaller dynamic radius
+                        opacity = Math.min(0.55, 0.25 + (count * 0.05));
+
+                        if (avgAqi >= 180) {
+                            ndvi = (0.70 + (count * 0.02)).toFixed(2);
+                            color = "#ef4444";
+                            statusLabel = "Critical Satellite Smog Plume Column (Extreme Density)";
+                        } else if (avgAqi >= 120) {
+                            ndvi = (0.45 + (count * 0.02)).toFixed(2);
+                            color = "#f97316";
+                            statusLabel = "Heavy Particulate Plume Column (Medium Density)";
+                        } else {
+                            ndvi = (0.25 + (count * 0.01)).toFixed(2);
+                            color = "#eab308";
+                            statusLabel = "Elevated Smog Column (Low Density)";
+                        }
+                    }
+
+                    const circle = new google.maps.Circle({
+                        strokeColor: color,
+                        strokeOpacity: 0.15,
+                        strokeWeight: 1,
+                        fillColor: color,
+                        fillOpacity: opacity,
+                        map: map,
+                        center: { lat: centerLat, lng: centerLng },
+                        radius: radius,
+                        clickable: true
+                    });
+
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div class="p-2 font-sans text-xs min-w-[200px] text-gray-800">
+                                <div class="flex justify-between items-center mb-1 border-b pb-1">
+                                    <span class="font-black text-[8px] uppercase tracking-wider text-blue-600">SATELLITE SPECTRAL SURVEY</span>
+                                    <span class="font-mono text-[8px] bg-blue-100 text-blue-800 px-1 rounded">NDVI: ${ndvi}</span>
+                                </div>
+                                <h4 class="font-black uppercase tracking-tight text-gray-900 text-xs">${zone} Plume</h4>
+                                <p class="text-gray-500 text-[10px] mt-0.5">${statusLabel}</p>
+                                <div class="grid grid-cols-2 gap-1 border-t pt-1.5 mt-1.5 text-[10px] font-semibold">
+                                    <div>
+                                        <span class="block text-[7px] text-gray-400 uppercase">Hotspots</span>
+                                        <span class="text-gray-900">${count} Reports</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-[7px] text-gray-400 uppercase">Avg AQI</span>
+                                        <span class="text-gray-900">${count > 0 ? Math.round(avgAqi) : "Clear"}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `
+                    });
+
+                    circle.addListener('click', (e) => {
+                        if (activeInfoWindow) activeInfoWindow.close();
+                        activeInfoWindow = infoWindow;
+                        infoWindow.setPosition(e.latLng);
+                        infoWindow.open(map);
+                    });
+                    activeSatelliteOverlays.push(circle);
+                });
+            }
+
+            function toggleSatelliteSmogOverlay(isEnabled) {
+                rebuildSatelliteSmogOverlay();
+            }
+
+            document.getElementById('layer-citizen').addEventListener('change', (e) => toggleCitizenReportsLayer(e.target.checked));
+            document.getElementById('layer-sensors').addEventListener('change', (e) => toggleSensorsLayer(e.target.checked));
+            document.getElementById('layer-satellite').addEventListener('change', (e) => toggleSatelliteSmogOverlay(e.target.checked));
+            
+            document.getElementById('layer-gmap-aqi').addEventListener('change', (e) => {
+                if (!map || !googleAqiOverlayObject) return;
+                if (e.target.checked) map.overlayMapTypes.push(googleAqiOverlayObject);
+                else {
+                    const index = map.overlayMapTypes.indexOf(googleAqiOverlayObject);
+                    if (index > -1) map.overlayMapTypes.removeAt(index);
+                }
+            });
+
+            // =====================================================================
+            // MULTILINGUAL TRANSLATION DICTIONARY
+            // =====================================================================
+            const translations = {
+                en: {
+                    home: "Home",
+                    active_layers: "Active Environmental Layers",
+                    layer_citizen: "Citizen Verified Incidents",
+                    layer_sensors: "Local Telemetry Sensors (PM2.5)",
+                    layer_satellite: "Satellite Smog Columns (NDVI)",
+                    layer_aqi: "Global AQI Heatmap Engine",
+                    gradient_index: "Air Quality Gradient Index",
+                    dark_mode: "Tactical Dark Mode",
+                    sys_status: "System & Telemetry Status",
+                    network_core: "Network Core:",
+                    active_hotspots: "Active Hotspots:",
+                    dispatches: "Active Dispatches:",
+                    map_legend: "Map Legend"
+                },
+                hi: {
+                    home: "होम",
+                    active_layers: "सक्रिय पर्यावरण परतें",
+                    layer_citizen: "नागरिक सत्यापित घटनाएं",
+                    layer_sensors: "स्थानीय टेलीमेट्री सेंसर (PM2.5)",
+                    layer_satellite: "सैटेलाइट स्मॉग कॉलम (NDVI)",
+                    layer_aqi: "वैश्विक AQI हीटमैप इंजन",
+                    gradient_index: "वायु गुणवत्ता सूचकांक",
+                    dark_mode: "डार्क मोड",
+                    sys_status: "सिस्टम और टेलीमेट्री स्थिति",
+                    network_core: "नेटवर्क कोर:",
+                    active_hotspots: "सक्रिय हॉटस्पॉट:",
+                    dispatches: "सक्रिय प्रेषण:",
+                    map_legend: "मानचित्र विवरण"
+                },
+                or: {
+                    home: "ମୂଳ ପୃଷ୍ଠା",
+                    active_layers: "ସକ୍ରିୟ ପରିବେଶ ସ୍ତରଗୁଡ଼ିକ",
+                    layer_citizen: "ନାଗରିକ ଯାଞ୍ଚ ହୋଇଥିବା ଘଟଣା",
+                    layer_sensors: "ସ୍ଥାନୀୟ ସେନ୍ସର (PM2.5)",
+                    layer_satellite: "ସାଟେଲାଇଟ୍ ସ୍ମଗ୍ ସ୍ତର (NDVI)",
+                    layer_aqi: "ଗ୍ଲୋବାଲ୍ AQI ହିଟମ୍ୟାପ୍",
+                    gradient_index: "ବାୟୁ ଗୁଣବତ୍ତା ସୂଚକาଙ୍କ",
+                    dark_mode: "ଡାର୍କ ମୋଡ୍",
+                    sys_status: "ସିଷ୍ଟମ୍ ଏବଂ ଟେଲିମେଟ୍ରି ସ୍ଥିତି",
+                    network_core: "ନେଟୱର୍କ କୋର୍:",
+                    active_hotspots: "ସକ୍ରିୟ ହଟସ୍ପଟ୍:",
+                    dispatches: "ସକ୍ରିୟ ପ୍ରେରଣ:",
+                    map_legend: "ମାନଚିତ୍ର ସୂଚୀ"
+                }
+            };
+
+            function setLanguage(lang) {
+                localStorage.setItem('ems-lang', lang);
+                if (document.getElementById('language-select')) document.getElementById('language-select').value = lang;
+                if (document.getElementById('language-select-mobile')) document.getElementById('language-select-mobile').value = lang;
+                document.querySelectorAll('[data-translate]').forEach(el => {
+                    const key = el.getAttribute('data-translate');
+                    if (translations[lang] && translations[lang][key]) {
+                        el.innerHTML = translations[lang][key];
+                    }
+                });
+            }
+
+            // Sync Sign-Out event listeners
+            const handleSignOut = () => {
+                signOut(auth).then(() => {
+                    window.location.reload();
+                });
+            };
+            if (logoutBtn) logoutBtn.addEventListener('click', handleSignOut);
+            const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+            if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', handleSignOut);
+
+            // Legend toggle listener
+            const legendToggleBtn = document.getElementById('legend-toggle-btn');
+            const legendContent = document.getElementById('legend-content');
+            const legendToggleIcon = document.getElementById('legend-toggle-icon');
+            if (legendToggleBtn && legendContent && legendToggleIcon) {
+                legendToggleBtn.addEventListener('click', () => {
+                    const isHidden = legendContent.classList.toggle('hidden');
+                    if (isHidden) {
+                        legendToggleIcon.className = "fa-solid fa-chevron-up";
+                    } else {
+                        legendToggleIcon.className = "fa-solid fa-chevron-down";
+                    }
+                });
+            }
+
+            // Initialize Language
+            const savedLang = localStorage.getItem('ems-lang') || 'en';
+            setLanguage(savedLang);
+        });
+    </script>
+</body>
+</html>

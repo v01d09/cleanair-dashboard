@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS - Field Dispatch</title>
+    
+    <link rel="icon" href="data:,">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' };
+        
+        // Prevent layout/theme flicker by checking local storage before render
+        (function() {
+            const savedTheme = localStorage.getItem('ems-theme') || 'light';
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        body, html { margin: 0; padding: 0; min-height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-[100dvh] transition-colors duration-300 relative">
+
+    <header class="w-full bg-white/85 dark:bg-gray-950/85 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 md:px-6 py-3.5 flex flex-col md:flex-row justify-between items-center shadow-sm sticky top-0 z-50 transition-all duration-300">
+        <div class="w-full md:w-auto flex justify-between items-center">
+            <a href="index.html" class="flex items-center space-x-2.5 text-gray-800 dark:text-white hover:opacity-90 transition">
+                <div class="bg-gradient-to-tr from-blue-600 to-cyan-500 p-2 rounded-lg shadow-md shadow-blue-500/10 flex items-center justify-center">
+                    <i class="fa-solid fa-satellite-dish text-white text-xs md:text-sm"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-black tracking-widest text-sm md:text-base uppercase leading-none text-gray-950 dark:text-white">EMS</span>
+                    <span class="text-[8px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none mt-0.5 font-sans">Clean Air Command</span>
+                </div>
+            </a>
+            
+            <div class="flex items-center space-x-2 md:hidden">
+                <!-- Space-optimized Dropdown Selection -->
+                <div class="relative">
+                    <select id="language-select-mobile" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-850 rounded-lg px-2 py-1 text-[10px] font-bold text-gray-700 dark:text-gray-300 focus:outline-none transition shadow-sm cursor-pointer">
+                        <option value="en">🌐 EN</option>
+                        <option value="hi">🌐 हिन्दी</option>
+                        <option value="or">🌐 ଓଡ଼ିଆ</option>
+                    </select>
+                </div>
+                <button id="theme-toggle-btn-mobile" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 flex items-center justify-center shadow-sm" title="Toggle Theme">
+                    <i class="fa-solid fa-moon text-xs" id="theme-icon-mobile"></i>
+                </button>
+                <button id="mobile-hamburger-btn" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 flex items-center justify-center shadow-sm">
+                    <i class="fa-solid fa-bars text-xs"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Desktop Nav Items -->
+        <div class="hidden md:flex items-center space-x-3 md:space-x-4">
+            <!-- Space-optimized Dropdown Selection -->
+            <div class="relative">
+                <select id="language-select" class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg px-2 py-1 text-[10px] md:text-xs font-bold text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition shadow-sm cursor-pointer">
+                    <option value="en">🌐 EN</option>
+                    <option value="hi">🌐 हिन्दी</option>
+                    <option value="or">🌐 ଓଡ଼ିଆ</option>
+                </select>
+            </div>
+            <a href="index.html" class="text-[10px] md:text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-2 sm:px-3 sm:py-1.5 rounded-lg shadow-sm">
+                <i class="fa-solid fa-house sm:mr-1.5 text-xs text-blue-600 dark:text-blue-400"></i><span data-translate="home">Home</span>
+            </a>
+            <a href="maps.html" class="text-[10px] md:text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-2 sm:px-3 sm:py-1.5 rounded-lg shadow-sm">
+                <i class="fa-solid fa-map-location-dot sm:mr-1.5 text-xs text-blue-600 dark:text-blue-400"></i><span data-translate="live_map">Live Map</span>
+            </a>
+            <div class="h-4 w-px bg-gray-200 dark:bg-gray-800"></div>
+            <button id="theme-toggle-btn" class="w-8 h-8 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-500 transition-all duration-200 flex items-center justify-center shadow-sm" title="Toggle Theme">
+                <i class="fa-solid fa-moon text-xs" id="theme-icon"></i>
+            </button>
+            
+            <div id="user-profile-container" class="hidden relative">
+                <button id="user-menu-btn" class="flex items-center space-x-1.5 bg-gray-50 dark:bg-gray-900 hover:bg-gray-200 dark:hover:bg-gray-800 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-200 transition-colors border border-gray-200 dark:border-gray-800 shadow-sm">
+                    <i class="fa-solid fa-user text-blue-600 dark:text-blue-400 text-xs sm:text-sm"></i>
+                    <span id="nav-user-name">Loading...</span>
+                    <i class="fa-solid fa-chevron-down text-[9px] ml-0.5"></i>
+                </button>
+                
+                <div id="auth-dropdown" class="hidden absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 py-1.5 z-50 transition-colors">
+                    <button id="logout-btn" class="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 font-bold uppercase tracking-wide flex items-center transition-colors text-[10px] sm:text-xs">
+                        <i class="fa-solid fa-power-off mr-2"></i> <span data-translate="sign_out">Sign Out</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Nav Dropdown -->
+        <div id="mobile-menu-container" class="hidden w-full flex flex-col bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl p-4 space-y-3 mt-2">
+            <a href="index.html" class="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-850 px-4 py-2.5 rounded-lg shadow-sm">
+                <i class="fa-solid fa-house mr-2 text-blue-600"></i><span data-translate="home">Home</span>
+            </a>
+            <a href="maps.html" class="text-xs font-bold tracking-wider text-gray-600 dark:text-gray-400 hover:text-blue-600 uppercase transition-colors flex items-center bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-850 px-4 py-2.5 rounded-lg shadow-sm">
+                <i class="fa-solid fa-map-location-dot mr-2 text-blue-600"></i><span data-translate="live_map">Live Map</span>
+            </a>
+            <div id="mobile-user-profile-container" class="hidden flex flex-col space-y-2 border-t border-gray-100 dark:border-gray-805 pt-3">
+                <div class="flex items-center space-x-2 px-2 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase">
+                    <i class="fa-solid fa-user text-blue-600"></i>
+                    <span id="nav-user-name-mobile">Loading...</span>
+                </div>
+                <button id="logout-btn-mobile" class="w-full text-left px-4 py-2.5 bg-red-50 dark:bg-red-950/20 text-red-600 font-bold uppercase tracking-wide flex items-center transition-colors rounded-lg text-xs">
+                    <i class="fa-solid fa-power-off mr-2"></i> <span data-translate="sign_out">Sign Out</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="flex-grow flex items-center justify-center p-4 sm:p-6 opacity-0 transition-opacity duration-500">
+        <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl w-full max-w-lg border border-gray-200 dark:border-gray-700 transition-colors">
+            
+            <div class="border-b border-gray-100 dark:border-gray-700 pb-5 mb-6">
+                <h1 class="text-xl sm:text-2xl font-black text-gray-800 dark:text-white tracking-tight uppercase flex items-center gap-3">
+                    <i class="fa-solid fa-tower-broadcast text-blue-600 dark:text-blue-400"></i> <span data-translate="title">Field Dispatch</span>
+                </h1>
+                <p class="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mt-1.5 font-medium" data-translate="subtitle">Report localized environmental hazards directly into the Municipal AI Supervision Network.</p>
+            </div>
+
+            <form id="incidentForm" class="space-y-6">
+                <div>
+                    <label class="block text-xs font-bold tracking-wider uppercase mb-2 text-gray-600 dark:text-gray-400" data-translate="coords_label">Incident Coordinates</label>
+                    <div class="flex flex-col sm:flex-row gap-3 mb-3">
+                        <button type="button" id="geoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-lg transition duration-200 flex justify-center items-center gap-2 text-xs uppercase tracking-wider shrink-0 shadow-md">
+                            <i class="fa-solid fa-location-crosshairs"></i> <span data-translate="geolocate_btn">Geolocate Me</span>
+                        </button>
+                        <input type="text" id="coordinatesDisplay" readonly required
+                            class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2.5 text-xs text-gray-800 dark:text-gray-200 w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors font-mono" 
+                            placeholder="Click on the map or geolocate...">
+                    </div>
+                    
+                    <div id="geofence-status-box" class="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-lg p-2.5 text-xs mb-3 font-medium transition-all duration-200 flex items-center space-x-2">
+                        <i class="fa-solid fa-earth-asia text-gray-400"></i>
+                        <span id="geofence-status-text" class="text-gray-500" data-translate="geofence_initial">Click on the map below or geolocate to verify your operational zone.</span>
+                    </div>
+
+                    <div class="h-44 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden relative shadow-inner mb-3">
+                        <div id="report-map" class="absolute inset-0 z-0"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold tracking-wider uppercase mb-2 text-gray-600 dark:text-gray-400" data-translate="photo_label">Visual Evidence File</label>
+                    <input type="file" id="imageInput" accept="image/*" required
+                        class="block w-full text-xs text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wider file:bg-blue-50 dark:file:bg-gray-700 file:text-blue-700 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-gray-600 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 p-1.5 transition-colors cursor-pointer">
+                    
+                    <!-- Image Preview Container -->
+                    <div id="imagePreviewContainer" class="hidden mt-3 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 relative h-40 flex items-center justify-center">
+                        <img id="imagePreview" src="" alt="Evidence Preview" class="w-full h-full object-cover">
+                        <button type="button" id="removeImageBtn" class="absolute top-2 right-2 bg-red-600/80 hover:bg-red-600 text-white rounded-full p-2 text-xs transition duration-200 shadow-md flex items-center justify-center w-7 h-7">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-xs font-bold tracking-wider uppercase text-gray-600 dark:text-gray-400" data-translate="notes_label">Hazard Notes</label>
+                        <!-- Voice Dictation Button for Low-Literacy / Inclusivity -->
+                        <button type="button" id="voiceBtn" class="flex items-center space-x-1 bg-gray-50 dark:bg-gray-900 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-gray-300 dark:border-gray-700 px-2 py-1 rounded text-[10px] font-bold uppercase transition-colors" title="Speech to Text">
+                            <i class="fa-solid fa-microphone text-xs" id="voiceIcon"></i>
+                            <span id="voiceText" data-translate="voice_dictate">Voice Dictate</span>
+                        </button>
+                    </div>
+                    <textarea id="hazardNotes" rows="3" required
+                        class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-800 dark:text-gray-200 w-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                        placeholder="Describe the fuel source (e.g., trash dump burning, industrial smog, construction dust)..."></textarea>
+                </div>
+
+                <button type="submit" id="submitBtn" class="w-full bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 font-bold uppercase tracking-widest py-3.5 px-4 rounded-lg cursor-not-allowed transition duration-200 text-xs" disabled data-translate="submit_btn">
+                    Submit Incident Ticket
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <footer class="bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 transition-colors duration-300 w-full shrink-0">
+        <div class="max-w-7xl mx-auto px-4 py-3 md:py-6 flex flex-col md:flex-row md:justify-between md:items-center gap-3 md:gap-6 text-xs text-gray-500 dark:text-gray-400">
+            <div class="hidden md:flex items-center space-x-3">
+                <div class="bg-blue-50 dark:bg-gray-900 p-1.5 rounded-lg border border-blue-100 dark:border-gray-800">
+                    <i class="fa-solid fa-satellite-dish text-blue-600 dark:text-blue-400 text-sm"></i>
+                </div>
+                <div>
+                    <span class="font-black tracking-widest uppercase text-gray-900 dark:text-white">EMS</span>
+                    <span class="block text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold">Clean Air Command</span>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap justify-center gap-x-4 sm:gap-x-6 gap-y-1.5 font-bold uppercase tracking-wider text-[9px] w-full md:w-auto">
+                <a href="index.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-house"></i> Home</a>
+                <a href="maps.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-map-location-dot"></i> Live Map</a>
+                <a href="citizen.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-user-astronaut"></i> Report</a>
+                <a href="crew_login.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-truck-fast"></i> Crew</a>
+                <a href="gov.html" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1.5"><i class="fa-solid fa-building-shield"></i> Official</a>
+            </div>
+            
+            <div class="hidden md:flex font-mono text-[9px] text-gray-400 dark:text-gray-600 uppercase tracking-widest items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-emerald-500 dark:text-emerald-600"></i> AES-256 Command Protocol
+            </div>
+        </div>
+    </footer>
+
+    <div id="success-modal" class="hidden fixed inset-0 z-[100] bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-200 dark:border-gray-700 overflow-hidden transform transition-transform scale-100">
+            <div class="p-8 text-center space-y-4">
+                <div class="mx-auto flex items-center justify-center h-14 w-14 rounded-full bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800">
+                    <i class="fa-solid fa-check text-2xl text-emerald-600 dark:text-emerald-400"></i>
+                </div>
+                <h3 class="text-lg font-black text-gray-900 dark:text-white uppercase tracking-wider">Request Submitted</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium leading-relaxed">Thank you for your contribution. The municipal grid will verify and update the telemetry shortly.</p>
+            </div>
+            
+            <div class="h-1.5 w-full bg-gray-200 dark:bg-gray-700">
+                <div id="redirect-progress-bar" class="h-full bg-emerald-500 w-full" style="transition: width 5s linear;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // =====================================================================
+        // UI & THEME TOGGLE ENGINE
+        // =====================================================================
+        const htmlElement = document.documentElement;
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const themeIcon = document.getElementById('theme-icon');
+        const themeToggleBtnMobile = document.getElementById('theme-toggle-btn-mobile');
+        const themeIconMobile = document.getElementById('theme-icon-mobile');
+
+        // Set initial icon based on theme
+        if (htmlElement.classList.contains('dark')) {
+            if (themeIcon) { themeIcon.classList.remove('fa-moon'); themeIcon.classList.add('fa-sun'); }
+            if (themeIconMobile) { themeIconMobile.classList.remove('fa-moon'); themeIconMobile.classList.add('fa-sun'); }
+        }
+
+        const handleThemeToggle = () => {
+            htmlElement.classList.toggle('dark');
+            const isDark = htmlElement.classList.contains('dark');
+            localStorage.setItem('ems-theme', isDark ? 'dark' : 'light');
+            
+            if (isDark) {
+                if (themeIcon) { themeIcon.className = "fa-solid fa-sun text-xs"; }
+                if (themeIconMobile) { themeIconMobile.className = "fa-solid fa-sun text-xs"; }
+            } else {
+                if (themeIcon) { themeIcon.className = "fa-solid fa-moon text-xs"; }
+                if (themeIconMobile) { themeIconMobile.className = "fa-solid fa-moon text-xs"; }
+            }
+        };
+
+        if (themeToggleBtn) themeToggleBtn.addEventListener('click', handleThemeToggle);
+        if (themeToggleBtnMobile) themeToggleBtnMobile.addEventListener('click', handleThemeToggle);
+
+        // Mobile Hamburger menu toggle
+        const mobileHamburgerBtn = document.getElementById('mobile-hamburger-btn');
+        const mobileMenuContainer = document.getElementById('mobile-menu-container');
+        if (mobileHamburgerBtn && mobileMenuContainer) {
+            mobileHamburgerBtn.addEventListener('click', () => {
+                mobileMenuContainer.classList.toggle('hidden');
+            });
+        }
+
+        // =====================================================================
+        // MULTILINGUAL TRANSLATION DICTIONARY
+        // =====================================================================
+        const translations = {
+            en: {
+                home: "Home",
+                live_map: "Live Map",
+                sign_out: "Sign Out",
+                title: "Field Dispatch",
+                subtitle: "Report localized environmental hazards directly into the Municipal AI Supervision Network.",
+                coords_label: "Incident Coordinates",
+                geolocate_btn: "Geolocate Me",
+                geofence_initial: "Click on the map below or geolocate to verify your operational zone.",
+                photo_label: "Visual Evidence File",
+                notes_label: "Hazard Notes",
+                voice_dictate: "Voice Dictate",
+                submit_btn: "Submit Incident Ticket",
+                success_title: "Request Submitted",
+                success_desc: "Thank you for your contribution. The municipal grid will verify and update the telemetry shortly."
+            },
+            hi: {
+                home: "होम",
+                live_map: "लाइव मैप",
+                sign_out: "साइन आउट",
+                title: "फील्ड प्रेषण (डिसपैच)",
+                subtitle: "नगर निगम एआई सुपरविजन नेटवर्क में स्थानीय पर्यावरण खतरों की रिपोर्ट सीधे दर्ज करें।",
+                coords_label: "घटना के निर्देशांक (Coordinates)",
+                geolocate_btn: "मेरा स्थान खोजें",
+                geofence_initial: "अपने परिचालन क्षेत्र को सत्यापित करने के लिए नीचे दिए गए मानचित्र पर क्लिक करें या जियोलोकेट करें।",
+                photo_label: "दृश्य साक्ष्य फ़ाइल (फोटो)",
+                notes_label: "खतरे का विवरण",
+                voice_dictate: "आवाज से बोलें",
+                submit_btn: "घटना टिकट सबमिट करें",
+                success_title: "अनुरोध सबमिट किया गया",
+                success_desc: "आपके योगदान के लिए धन्यवाद। नगर निगम ग्रिड जल्द ही टेलीमेट्री को सत्यापित और अपडेट करेगा।"
+            },
+            or: {
+                home: "ମୂଳ ପୃଷ୍ଠା",
+                live_map: "ଲାଇଭ୍ ମ୍ୟାପ୍",
+                sign_out: "ସାଇନ୍ ଆଉଟ୍",
+                title: "ଫିଲ୍ଡ ଡିସପାଚ୍",
+                subtitle: "ପୌରସଂସ୍ଥା AI ସୁପରଭିଜନ ନେଟୱର୍କକୁ ସିଧାସଳଖ ଆଞ୍ଚଳିକ ପରିବେଶ ବିପଦ ବିଷୟରେ ରିପୋର୍ଟ କରନ୍ତୁ।",
+                coords_label: "ଘଟଣାର ସ୍ଥାନ ନିର୍ଦ୍ଦେଶାଙ୍କ",
+                geolocate_btn: "ମୋର ସ୍ଥାନ ଖୋଜନ୍ତୁ",
+                geofence_initial: "ଆପଣଙ୍କର କାର୍ଯ୍ୟକ୍ଷେତ୍ର ଯାଞ୍ଚ କରିବା ପାଇଁ ତଳେ ଥିବା ମାନଚିତ୍ରରେ କ୍ଲିକ୍ କରନ୍ତୁ କିମ୍ବା ଜିଓଲୋକେଟ୍ କରନ୍ତୁ।",
+                photo_label: "ଦୃଶ୍ୟମାନ ପ୍ରମାଣ ଫାଇଲ୍",
+                notes_label: "ବିପଦର ବିବରଣୀ",
+                voice_dictate: "ସ୍ୱର ରେକର୍ଡିଂ",
+                submit_btn: "ଘଟଣା ଟିକେଟ୍ ଦାଖଲ କରନ୍ତୁ",
+                success_title: "ଅନୁରୋଧ ଦାଖଲ ହେଲା",
+                success_desc: "ଆପଣଙ୍କ ଅବଦାନ ପାଇଁ ଧନ୍ୟବାଦ। ପୌରସଂସ୍ଥା ଗ୍ରୀଡ୍ ଶୀଘ୍ର ତଥ୍ୟ ଯାଞ୍ଚ ଏବଂ ଅପଡେଟ୍ କରିବ।"
+            }
+        };
+
+        function setLanguage(lang) {
+            localStorage.setItem('ems-lang', lang);
+            if (document.getElementById('language-select')) document.getElementById('language-select').value = lang;
+            if (document.getElementById('language-select-mobile')) document.getElementById('language-select-mobile').value = lang;
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.getAttribute('data-translate');
+                if (translations[lang] && translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+            if (lang === 'hi') {
+                document.getElementById('hazardNotes').placeholder = "ईंधन स्रोत का वर्णन करें (जैसे, कचरा जलना, औद्योगिक धुआं, धूल)...";
+                document.getElementById('coordinatesDisplay').placeholder = "मानचित्र पर क्लिक करें या जियोलोकेट करें...";
+            } else if (lang === 'or') {
+                document.getElementById('hazardNotes').placeholder = "ବିପଦର ଉତ୍ସ ବର୍ଣ୍ଣନା କରନ୍ତୁ (ଯେପରିକି ଆବର୍ଜନା ଜଳିବା, କାରଖାନା ଧୂଆଁ, ଧୂଳି)...";
+                document.getElementById('coordinatesDisplay').placeholder = "ମାନଚିତ୍ରରେ କ୍ଲିକ୍ କରନ୍ତୁ କିମ୍ବା ଜିଓଲୋକେଟ୍ କରନ୍ତୁ...";
+            } else {
+                document.getElementById('hazardNotes').placeholder = "Describe the fuel source (e.g., trash dump burning, industrial smog, construction dust)...";
+                document.getElementById('coordinatesDisplay').placeholder = "Click on the map or geolocate...";
+            }
+        }
+
+        if (document.getElementById('language-select')) {
+            document.getElementById('language-select').addEventListener('change', (e) => {
+                setLanguage(e.target.value);
+            });
+        }
+        if (document.getElementById('language-select-mobile')) {
+            document.getElementById('language-select-mobile').addEventListener('change', (e) => {
+                setLanguage(e.target.value);
+            });
+        }
+
+        // Initialize Language
+        const savedLang = localStorage.getItem('ems-lang') || 'en';
+        window.addEventListener('DOMContentLoaded', () => {
+            setLanguage(savedLang);
+        });
+
+        // =====================================================================
+        // SPEECH RECOGNITION (VOICE REPORTING)
+        // =====================================================================
+        const voiceBtn = document.getElementById('voiceBtn');
+        const voiceIcon = document.getElementById('voiceIcon');
+        const voiceText = document.getElementById('voiceText');
+        const hazardNotesInput = document.getElementById('hazardNotes');
+        
+        let recognition = null;
+        let isListening = false;
+        
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            recognition.onstart = () => {
+                isListening = true;
+                voiceIcon.className = "fa-solid fa-microphone-lines text-red-500 animate-pulse";
+                voiceText.innerText = localStorage.getItem('ems-lang') === 'hi' ? 'सुन रहा है...' : (localStorage.getItem('ems-lang') === 'or' ? 'ଶୁଣୁଛି...' : 'Listening...');
+            };
+            
+            recognition.onend = () => {
+                isListening = false;
+                voiceIcon.className = "fa-solid fa-microphone text-xs";
+                voiceText.innerText = translations[localStorage.getItem('ems-lang') || 'en'].voice_dictate;
+            };
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                hazardNotesInput.value = (hazardNotesInput.value ? hazardNotesInput.value + " " : "") + transcript;
+                evaluateFormCompleteness();
+            };
+            
+            recognition.onerror = (e) => {
+                if (e.error === 'no-speech') {
+                    console.log("Speech recognition completed: no audio detected.");
+                } else {
+                    console.error("Speech recognition error:", e.error, e.message);
+                }
+                isListening = false;
+                voiceIcon.className = "fa-solid fa-microphone text-xs";
+                voiceText.innerText = translations[localStorage.getItem('ems-lang') || 'en'].voice_dictate;
+            };
+            
+            voiceBtn.addEventListener('click', () => {
+                if (isListening) {
+                    recognition.stop();
+                } else {
+                    recognition.lang = localStorage.getItem('ems-lang') === 'hi' ? 'hi-IN' : (localStorage.getItem('ems-lang') === 'or' ? 'or-IN' : 'en-US');
+                    recognition.start();
+                }
+            });
+        } else {
+            voiceBtn.style.display = 'none';
+        }
+
+        // Dropdown Menu Engine
+        const userMenuBtn = document.getElementById('user-menu-btn');
+        const authDropdown = document.getElementById('auth-dropdown');
+        
+        userMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            authDropdown.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', () => {
+            authDropdown.classList.add('hidden');
+        });
+
+        // =====================================================================
+        // FIREBASE INITIALIZATION & AUTH GUARD
+        // =====================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMzuLbJvBKf7Ivxtd6FbWDYp_hV0GD1TM",
+            authDomain: "void-501114.firebaseapp.com",
+            projectId: "void-501114",
+            storageBucket: "void-501114.firebasestorage.app",
+            messagingSenderId: "715581482123",
+            appId: "1:715581482123:web:abc16633b73f2934a4208e"
+        };
+        const app = initializeApp(firebaseConfig);
+        const storage = getStorage(app);
+        const auth = getAuth(app);
+        const db = getFirestore(app, "clean"); // Explicitly pointing to the 'clean' database
+
+        const mainContent = document.getElementById('main-content');
+        const userProfileContainer = document.getElementById('user-profile-container');
+        const navUserName = document.getElementById('nav-user-name');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        // Security Guard: Verify active session token, pull user identity, and initialize systems
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                // Connection rejected: Bounce to authentication gateway
+                window.location.replace('citizen.html?auth=required');
+            } else {
+                // Connection verified: Reveal dashboard
+                mainContent.classList.remove('opacity-0');
+                if (userProfileContainer) userProfileContainer.classList.remove('hidden');
+                const mobileProfileContainer = document.getElementById('mobile-user-profile-container');
+                if (mobileProfileContainer) mobileProfileContainer.classList.remove('hidden');
+
+                // Initialize Leaflet Map
+                initReportMap();
+
+                // Extract User Profile Data from Firestore
+                try {
+                    // Check Citizen Collection First
+                    let userDoc = await getDoc(doc(db, "registered_citizens", user.uid));
+                    
+                    // Fallback to Government Collection if not found
+                    if (!userDoc.exists()) {
+                        userDoc = await getDoc(doc(db, "government_officers", user.uid)); 
+                    }
+
+                    if (userDoc.exists() && userDoc.data().name) {
+                        const fullName = userDoc.data().name;
+                        if (navUserName) navUserName.innerText = fullName.split(' ')[0]; // Keep just the first name
+                        const navUserNameMobile = document.getElementById('nav-user-name-mobile');
+                        if (navUserNameMobile) navUserNameMobile.innerText = fullName.split(' ')[0];
+                    } else {
+                        if (navUserName) navUserName.innerText = "User";
+                        const navUserNameMobile = document.getElementById('nav-user-name-mobile');
+                        if (navUserNameMobile) navUserNameMobile.innerText = "User";
+                    }
+                } catch (error) {
+                    console.error("Firestore Profile Fetch Error:", error);
+                    if (navUserName) navUserName.innerText = "User";
+                    const navUserNameMobile = document.getElementById('nav-user-name-mobile');
+                    if (navUserNameMobile) navUserNameMobile.innerText = "User";
+                }
+            }
+        });
+
+        // Terminate Session
+        const handleSignOut = () => {
+            signOut(auth).then(() => {
+                window.location.replace('citizen.html');
+            });
+        };
+
+        if (logoutBtn) logoutBtn.addEventListener('click', handleSignOut);
+        const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+        if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', handleSignOut);
+
+        // =====================================================================
+        // APPLICATION LOGIC
+        // =====================================================================
+        let userLatitude = null;
+        let userLongitude = null;
+        const uniqueDocumentId = `WEB_${Math.random().toString(36).substring(2, 15)}_${Date.now()}`;
+
+        const geoBtn = document.getElementById('geoBtn');
+        const coordinatesDisplay = document.getElementById('coordinatesDisplay');
+        const imageInput = document.getElementById('imageInput');
+        const hazardNotes = document.getElementById('hazardNotes');
+        const incidentForm = document.getElementById('incidentForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        const geofencePolygons = {
+            "Niladri Vihar": [
+                [20.331164, 85.797387],
+                [20.327195, 85.795332],
+                [20.323444, 85.795568],
+                [20.322510, 85.802466],
+                [20.321403, 85.802152],
+                [20.319164, 85.810519],
+                [20.321403, 85.811647],
+                [20.321501, 85.812434],
+                [20.331242, 85.815634],
+                [20.330897, 85.809182],
+                [20.329840, 85.808998],
+                [20.331164, 85.797387]
+            ],
+            "Sailashree Vihar": [
+                [20.329775, 85.808972],
+                [20.331219, 85.797427],
+                [20.332744, 85.798161],
+                [20.335930, 85.796750],
+                [20.338846, 85.798046],
+                [20.339118, 85.807507],
+                [20.338245, 85.807541],
+                [20.338576, 85.810062],
+                [20.339587, 85.810066],
+                [20.339614, 85.810475],
+                [20.340117, 85.810450],
+                [20.341482, 85.813226],
+                [20.340209, 85.814042],
+                [20.339563, 85.813933],
+                [20.338613, 85.815720],
+                [20.339273, 85.816169],
+                [20.337619, 85.820193],
+                [20.335599, 85.816476],
+                [20.332981, 85.816082],
+                [20.333222, 85.813484],
+                [20.331182, 85.813154],
+                [20.330903, 85.809142],
+                [20.329775, 85.808972]
+            ],
+            "Infocity": [
+                [20.335914, 85.796692],
+                [20.338750, 85.795909],
+                [20.343520, 85.798826],
+                [20.346656, 85.798506],
+                [20.346105, 85.799146],
+                [20.348974, 85.803433],
+                [20.353444, 85.803202],
+                [20.354544, 85.806902],
+                [20.342853, 85.807115],
+                [20.342940, 85.809942],
+                [20.338629, 85.810086],
+                [20.338264, 85.807537],
+                [20.339140, 85.807501],
+                [20.338944, 85.797984],
+                [20.335914, 85.796692]
+            ],
+            "Rail Vihar": [
+                [20.305008, 85.812987],
+                [20.304974, 85.811574],
+                [20.306357, 85.811591],
+                [20.306405, 85.810586],
+                [20.308226, 85.810603],
+                [20.308730, 85.808037],
+                [20.308747, 85.804362],
+                [20.319406, 85.807776],
+                [20.319097, 85.810550],
+                [20.321292, 85.811521],
+                [20.322332, 85.812682],
+                [20.321926, 85.814902],
+                [20.323226, 85.815110],
+                [20.322641, 85.816895],
+                [20.320202, 85.816375],
+                [20.320202, 85.815474],
+                [20.317520, 85.814728],
+                [20.317503, 85.813064],
+                [20.315374, 85.812942],
+                [20.315130, 85.813931],
+                [20.311406, 85.813844],
+                [20.310772, 85.820068],
+                [20.307845, 85.820283],
+                [20.307536, 85.819052],
+                [20.308031, 85.813158],
+                [20.305008, 85.812987]
+            ],
+            "District Center": [
+                [20.321158, 85.820372],
+                [20.321410, 85.816875],
+                [20.322657, 85.816896],
+                [20.322981, 85.815220],
+                [20.321887, 85.814971],
+                [20.322143, 85.813140],
+                [20.322350, 85.812703],
+                [20.323099, 85.813228],
+                [20.326792, 85.814038],
+                [20.326309, 85.820671],
+                [20.321158, 85.820372]
+            ]
+        };
+
+        let reportMap;
+        let reportMarker;
+        let activeGeofences = JSON.parse(JSON.stringify(geofencePolygons));
+        let maskLayerObj = null;
+        let outlineLayers = [];
+        let labelTooltips = [];
+
+        function redrawReportMapLayers() {
+            if (!reportMap) return;
+
+            if (maskLayerObj) reportMap.removeLayer(maskLayerObj);
+            outlineLayers.forEach(l => reportMap.removeLayer(l));
+            outlineLayers = [];
+            labelTooltips.forEach(t => reportMap.removeLayer(t));
+            labelTooltips = [];
+
+            const outerBoundary = [[19.0, 84.0], [19.0, 87.0], [21.5, 87.0], [21.5, 84.0]];
+            const holes = Object.values(activeGeofences);
+
+            // Shadow Overlay Mask
+            maskLayerObj = L.polygon([outerBoundary, ...holes], {
+                color: 'none',
+                fillColor: '#090d16',
+                fillOpacity: 0.6,
+                interactive: false
+            }).addTo(reportMap);
+
+            const outlineStyle = { color: '#ef4444', weight: 1.5, dashArray: '4, 6', fillColor: 'none', interactive: false };
+            
+            Object.keys(activeGeofences).forEach(name => {
+                const coords = activeGeofences[name];
+                const outline = L.polygon(coords, outlineStyle).addTo(reportMap);
+                outlineLayers.push(outline);
+            });
+
+            // Labels overlay centered in zones
+            const getPolygonCenter = (coords) => {
+                let latSum = 0, lngSum = 0;
+                coords.forEach(c => {
+                    latSum += c[0];
+                    lngSum += c[1];
+                });
+                return [latSum / coords.length, lngSum / coords.length];
+            };
+
+            Object.keys(activeGeofences).forEach(name => {
+                const center = getPolygonCenter(activeGeofences[name]);
+                const tooltip = L.tooltip({
+                    permanent: true,
+                    direction: 'center',
+                    className: 'bg-transparent border-0 shadow-none text-red-500 font-bold uppercase tracking-widest text-[8px] font-sans'
+                })
+                .setContent(name)
+                .setLatLng(center)
+                .addTo(reportMap);
+                labelTooltips.push(tooltip);
+            });
+        }
+
+        function initReportMap() {
+            if (reportMap) return; // avoid duplicate initialization
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const tileUrl = isDark 
+                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
+                : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+            
+            reportMap = L.map('report-map', { zoomControl: false }).setView([20.318, 85.815], 13);
+            window.reportMap = reportMap;
+            L.tileLayer(tileUrl, { attribution: '&copy; OpenStreetMap' }).addTo(reportMap);
+
+            // Draw initial layers with pre-calculated fallbacks
+            redrawReportMapLayers();
+
+            // Map click listener to place/drag marker
+            reportMap.on('click', (e) => {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                setMarkerLocation(lat, lng);
+            });
+        }
+
+        window.setMarkerLocation = function(lat, lng) {
+            userLatitude = lat;
+            userLongitude = lng;
+            coordinatesDisplay.value = `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
+
+            if (reportMarker) {
+                reportMarker.setLatLng([lat, lng]);
+            } else {
+                reportMarker = L.marker([lat, lng], { draggable: true }).addTo(reportMap);
+                reportMarker.on('dragend', () => {
+                    const pos = reportMarker.getLatLng();
+                    setMarkerLocation(pos.lat, pos.lng);
+                });
+            }
+
+            reportMap.panTo([lat, lng]);
+            updateGeofenceDisplay(lat, lng);
+            evaluateFormCompleteness();
+        }
+
+        // Ray-casting algorithm for point-in-polygon checking
+        function isPointInPolygon(lat, lng, polygon) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                let xi = polygon[i][0], yi = polygon[i][1];
+                let xj = polygon[j][0], yj = polygon[j][1];
+                
+                let intersect = ((yi > lng) !== (yj > lng))
+                    && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function determineGeofenceZone(lat, lng) {
+            for (const name of Object.keys(activeGeofences)) {
+                if (isPointInPolygon(lat, lng, activeGeofences[name])) {
+                    return name;
+                }
+            }
+            return null;
+        }
+
+        function updateGeofenceDisplay(lat, lng) {
+            const zoneName = determineGeofenceZone(lat, lng);
+            const statusBox = document.getElementById('geofence-status-box');
+            const statusText = document.getElementById('geofence-status-text');
+            
+            statusBox.className = "border rounded-lg p-2.5 text-xs mb-3 font-medium transition-all duration-200 flex items-center space-x-2";
+            
+            if (zoneName) {
+                statusBox.classList.add("bg-emerald-50", "dark:bg-emerald-950/20", "border-emerald-200", "dark:border-emerald-900/60", "text-emerald-800", "dark:text-emerald-400");
+                statusText.innerHTML = `<i class="fa-solid fa-circle-check mr-1 animate-pulse"></i> Operational Zone: <strong>${zoneName}</strong>`;
+            } else {
+                statusBox.classList.add("bg-amber-50", "dark:bg-amber-950/20", "border-amber-200", "dark:border-amber-900/60", "text-amber-800", "dark:text-amber-400");
+                statusText.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1"></i> Outside Geofence bounds (Demo Submission Enabled)`;
+            }
+        }
+
+        // Consolidated with the primary auth observer above
+
+        window.evaluateFormCompleteness = function() {
+            const hasImage = imageInput.files.length > 0 || (imagePreview.src && !imagePreview.src.endsWith('data:,') && !imagePreview.src.includes('undefined') && !imagePreviewContainer.classList.contains('hidden'));
+            if (userLatitude && userLongitude && hasImage && hazardNotes.value.trim() !== "") {
+                submitBtn.disabled = false;
+                submitBtn.className = "w-full bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase tracking-widest py-3.5 px-4 rounded-lg shadow-lg shadow-blue-600/20 cursor-pointer transition duration-200 text-xs";
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.className = "w-full bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-500 font-bold uppercase tracking-widest py-3.5 px-4 rounded-lg cursor-not-allowed transition duration-200 text-xs";
+            }
+        }
+
+        // Hardware Geolocation Input Processing
+        geoBtn.addEventListener('click', () => {
+            const originalText = geoBtn.innerHTML;
+            geoBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Locating...';
+            
+            if (!navigator.geolocation) {
+                alert("Hardware Exception: Native spatial API not found.");
+                geoBtn.innerHTML = originalText;
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    setMarkerLocation(lat, lng);
+                    
+                    geoBtn.innerHTML = '<i class="fa-solid fa-check text-emerald-300"></i> Locked';
+                    geoBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                    geoBtn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+                },
+                (err) => {
+                    alert(`Spatial Sync Denied: ${err.message}. Please allow location permissions.`);
+                    geoBtn.innerHTML = originalText;
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const removeImageBtn = document.getElementById('removeImageBtn');
+
+        imageInput.addEventListener('change', () => {
+            const file = imageInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                    imagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.src = "";
+                imagePreviewContainer.classList.add('hidden');
+            }
+            evaluateFormCompleteness();
+        });
+
+        removeImageBtn.addEventListener('click', () => {
+            imageInput.value = "";
+            imagePreview.src = "";
+            imagePreviewContainer.classList.add('hidden');
+            evaluateFormCompleteness();
+        });
+        hazardNotes.addEventListener('input', evaluateFormCompleteness);
+
+        // Consolidated Intake Pipeline
+        incidentForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const modal = document.getElementById('success-modal');
+            const progressBar = document.getElementById('redirect-progress-bar');
+            
+            modal.classList.remove('hidden');
+            
+            setTimeout(() => {
+                progressBar.style.width = '0%';
+            }, 50);
+
+            setTimeout(() => {
+                window.location.href = 'maps.html';
+            }, 5000);
+
+            const file = imageInput.files[0];
+            let mediaUrl = imagePreview.src || "";
+            
+            (async () => {
+                try {
+                    if (file) {
+                        const fileExtension = file.name.split('.').pop();
+                        const storagePath = `incident_evidence/${uniqueDocumentId}_burn.${fileExtension}`;
+                        const storageReference = ref(storage, storagePath);
+                        await uploadBytes(storageReference, file);
+                        mediaUrl = await getDownloadURL(storageReference);
+                    }
+                    
+                    const payload = {
+                        document_id: uniqueDocumentId,
+                        latitude: userLatitude,
+                        longitude: userLongitude,
+                        media_url: mediaUrl,
+                        hazard_notes: hazardNotes.value.trim(),
+                        submitted_at: new Date().toISOString()
+                    };
+
+                    await setDoc(doc(db, "web_holding_bay", uniqueDocumentId), payload);
+
+                    await fetch('https://asia-south1-void-501114.cloudfunctions.net/cleanair-core', {
+                        method: 'POST',
+                        mode: 'cors',
+                        keepalive: true,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    console.log("Background ingestion and database write complete.");
+                } catch (pipelineError) {
+                    console.error("Background Pipeline Suppressed Error:", pipelineError);
+                }
+            })();
+        });
+    </script>
+</body>
+</html>
